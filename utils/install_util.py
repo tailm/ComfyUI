@@ -4,7 +4,7 @@ import logging
 import re
 
 # The path to the requirements.txt file
-requirements_path = Path(__file__).parents[1] / "requirements.txt"
+requirements_path = Path(__file__).parent / "requirements.txt"
 
 
 def get_missing_requirements_message():

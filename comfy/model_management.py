@@ -28,6 +28,7 @@ import platform
 import weakref
 import gc
 import os
+import time
 from contextlib import contextmanager, nullcontext
 import comfy.memory_management
 import comfy.utils
@@ -838,11 +839,50 @@ def free_memory(memory_required, device, keep_loaded=[], for_dynamic=False, pins
             mem_free_total, mem_free_torch = get_free_memory(device, torch_free_too=True)
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
+    
+    # 更新模型使用跟踪
+    for loaded_model in unloaded_models:
+        if loaded_model.model is not None:
+            track_model_usage(loaded_model.model, "release")
+    
     return unloaded_models
 
 def load_models_gpu(models, memory_required=0, force_patch_weights=False, minimum_memory_required=None, force_full_load=False):
     cleanup_models_gc()
     global vram_state
+    
+    # 自动模型间内存清理
+    if args.inter_model_cleanup:
+        # 计算需要加载的模型总内存
+        total_memory_needed = 0
+        for model in models:
+            # 估算模型内存需求
+            model_size = model.model_size() if hasattr(model, 'model_size') else 0
+            total_memory_needed += model_size
+        
+        # 如果需要内存，进行预清理
+        if total_memory_needed > 0:
+            device = get_torch_device() if models else None
+            if device:
+                # 检查内存使用率
+                free_mem = get_free_memory(device)
+                total_mem = get_total_memory(device)
+                used_mem = total_mem - free_mem
+                memory_usage = used_mem / total_mem if total_mem > 0 else 0
+                
+                # 如果内存使用率超过阈值，进行清理
+                if memory_usage > args.model_cleanup_threshold:
+                    logging.info(f"内存使用率 {memory_usage:.1%} 超过阈值 {args.model_cleanup_threshold:.0%}，执行自动清理")
+                    cleaned = cleanup_unused_models(device)
+                    if cleaned > 0:
+                        logging.info(f"自动清理了 {cleaned} 个未使用的模型")
+                
+                # 预清理以确保有足够内存
+                preload_cleanup(total_memory_needed, device)
+    
+    # 跟踪模型使用
+    for model in models:
+        track_model_usage(model, "use")
 
     inference_memory = minimum_inference_memory()
     extra_mem = max(inference_memory, memory_required + extra_reserved_memory())
@@ -1960,6 +2000,11 @@ def soft_empty_cache(force=False):
         torch.cuda.ipc_collect()
 
 def unload_all_models():
+    # 清理所有模型使用跟踪
+    global _model_usage_tracker, _model_last_used
+    _model_usage_tracker.clear()
+    _model_last_used.clear()
+    
     for device in get_all_torch_devices():
         free_memory(1e30, device)
 
@@ -1983,11 +2028,32 @@ def unload_model_and_clones(model: ModelPatcher, unload_additional_models=True, 
             if skip:
                 continue
         keep_loaded.append(loaded_model)
+    # 获取要卸载的模型列表
+    models_to_unload = []
+    for loaded_model in initial_keep_loaded:
+        if loaded_model.model is not None:
+            if model.clone_base_uuid == loaded_model.model.clone_base_uuid:
+                models_to_unload.append(loaded_model.model)
+                continue
+            # 检查附加模型是否匹配
+            skip = False
+            for add_model in additional_models:
+                if add_model.clone_base_uuid == loaded_model.model.clone_base_uuid:
+                    models_to_unload.append(loaded_model.model)
+                    skip = True
+                    break
+            if skip:
+                continue
+    
     if not all_devices:
         free_memory(1e30, get_torch_device(), keep_loaded)
     else:
         for device in get_all_torch_devices():
             free_memory(1e30, device, keep_loaded)
+    
+    # 更新模型使用跟踪
+    for model in models_to_unload:
+        track_model_usage(model, "release")
 
 def debug_memory_summary():
     if is_amd() or is_nvidia():
@@ -2019,3 +2085,182 @@ def throw_exception_if_processing_interrupted():
         if interrupt_processing:
             interrupt_processing = False
             raise InterruptProcessingException()
+
+# ============================================================================
+# 模型间GPU内存清理功能
+# ============================================================================
+
+# 模型使用跟踪
+_model_usage_tracker = {}
+_model_last_used = {}
+
+def track_model_usage(model_patcher, operation="use"):
+    """跟踪模型使用情况"""
+    global _model_usage_tracker, _model_last_used
+    if model_patcher is None:
+        return
+    
+    model_id = id(model_patcher)
+    current_time = time.time()
+    
+    if operation == "use":
+        _model_usage_tracker[model_id] = _model_usage_tracker.get(model_id, 0) + 1
+        _model_last_used[model_id] = current_time
+    elif operation == "release":
+        if model_id in _model_usage_tracker:
+            _model_usage_tracker[model_id] = max(0, _model_usage_tracker.get(model_id, 0) - 1)
+            if _model_usage_tracker[model_id] == 0:
+                # 模型不再使用，可以标记为可清理
+                pass
+
+def cleanup_unused_models(device=None, aggressive=False):
+    """
+    清理未使用的模型以释放GPU内存
+    
+    Args:
+        device: 要清理的设备，如果为None则清理所有设备
+        aggressive: 是否激进清理（即使模型可能还在使用）
+    """
+    global current_loaded_models, _model_usage_tracker, _model_last_used
+    
+    models_to_keep = []
+    models_to_unload = []
+    
+    current_time = time.time()
+    
+    for loaded_model in current_loaded_models:
+        model = loaded_model.model
+        if model is None:
+            continue
+            
+        model_id = id(model)
+        
+        # 检查模型是否还在使用
+        usage_count = _model_usage_tracker.get(model_id, 0)
+        last_used = _model_last_used.get(model_id, 0)
+        
+        # 如果模型正在使用，保留它
+        if usage_count > 0 and not aggressive:
+            models_to_keep.append(loaded_model)
+            continue
+            
+        # 如果设备不匹配，跳过
+        if device is not None and loaded_model.device != device:
+            models_to_keep.append(loaded_model)
+            continue
+            
+        # 检查模型是否最近使用过（5秒内）
+        if not aggressive and (current_time - last_used) < 5.0:
+            models_to_keep.append(loaded_model)
+            continue
+            
+        # 标记为可卸载
+        models_to_unload.append(loaded_model)
+    
+    # 卸载标记的模型
+    if models_to_unload:
+        logging.info(f"清理 {len(models_to_unload)} 个未使用的模型以释放GPU内存")
+        
+        # 从当前加载的模型中移除
+        for loaded_model in models_to_unload:
+            if loaded_model in current_loaded_models:
+                idx = current_loaded_models.index(loaded_model)
+                current_loaded_models.pop(idx)
+                
+                # 实际卸载模型
+                loaded_model.model_unload()
+                
+                # 清理跟踪信息
+                model_id = id(loaded_model.model)
+                if model_id in _model_usage_tracker:
+                    del _model_usage_tracker[model_id]
+                if model_id in _model_last_used:
+                    del _model_last_used[model_id]
+        
+        # 执行软缓存清理
+        soft_empty_cache()
+        
+    return len(models_to_unload)
+
+def preload_cleanup(memory_required, device=None):
+    """
+    在加载新模型前预清理内存
+    
+    Args:
+        memory_required: 需要的内存大小（字节）
+        device: 目标设备
+    """
+    if device is None:
+        device = get_torch_device()
+    
+    # 获取当前可用内存
+    free_mem = get_free_memory(device)
+    
+    # 如果内存足够，不需要清理
+    if free_mem >= memory_required * 1.2:  # 保留20%的余量
+        return 0
+    
+    # 计算需要释放的内存
+    memory_to_free = memory_required - free_mem
+    
+    # 首先尝试清理未使用的模型
+    cleaned = cleanup_unused_models(device)
+    if cleaned > 0:
+        free_mem = get_free_memory(device)
+        if free_mem >= memory_required * 1.1:  # 清理后检查是否足够
+            return cleaned
+    
+    # 如果还不够，使用现有的free_memory函数
+    if free_mem < memory_required:
+        free_memory(memory_required - free_mem, device)
+    
+    return cleaned
+
+def auto_clean_models_between_runs():
+    """
+    在模型运行之间自动清理内存
+    这个函数应该在每个模型运行完成后调用
+    """
+    # 清理所有设备上未使用的模型
+    total_cleaned = 0
+    for device in get_all_torch_devices():
+        cleaned = cleanup_unused_models(device)
+        total_cleaned += cleaned
+    
+    if total_cleaned > 0:
+        logging.info(f"模型运行间自动清理了 {total_cleaned} 个模型")
+    
+    return total_cleaned
+
+def get_memory_usage_summary():
+    """获取内存使用情况摘要"""
+    summary = {}
+    
+    for device in get_all_torch_devices():
+        free_mem = get_free_memory(device)
+        total_mem = get_total_memory(device)
+        used_mem = total_mem - free_mem
+        
+        summary[str(device)] = {
+            "total_memory_mb": total_mem / (1024 * 1024),
+            "free_memory_mb": free_mem / (1024 * 1024),
+            "used_memory_mb": used_mem / (1024 * 1024),
+            "usage_percentage": (used_mem / total_mem * 100) if total_mem > 0 else 0
+        }
+    
+    # 统计加载的模型
+    model_count = len(current_loaded_models)
+    active_models = sum(1 for m in current_loaded_models if _model_usage_tracker.get(id(m.model), 0) > 0)
+    
+    summary["models"] = {
+        "total_loaded": model_count,
+        "active_models": active_models,
+        "inactive_models": model_count - active_models
+    }
+    
+    return summary
+
+# 设置模型间清理参数
+args.inter_model_cleanup = not args.disable_inter_model_cleanup
+if args.auto_clean_models:
+    args.inter_model_cleanup = True

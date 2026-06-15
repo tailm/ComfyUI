@@ -645,6 +645,15 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
 
     get_progress_state().finish_progress(unique_id)
     executed.add(unique_id)
+    
+    # 模型间自动内存清理
+    if comfy.model_management.args.inter_model_cleanup:
+        try:
+            cleaned = comfy.model_management.auto_clean_models_between_runs()
+            if cleaned > 0:
+                logging.debug(f"节点 {unique_id} ({class_type}) 执行后自动清理了 {cleaned} 个未使用模型")
+        except Exception as e:
+            logging.warning(f"模型间清理失败: {e}")
 
     return (ExecutionResult.SUCCESS, None, None)
 

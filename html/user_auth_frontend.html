@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI 用户认证系统 - 前端演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        .card h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #2f855a 100%);
+        }
+        
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .message.success {
+            background-color: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+            display: block;
+        }
+        
+        .message.error {
+            background-color: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+            display: block;
+        }
+        
+        .message.info {
+            background-color: #bee3f8;
+            color: #2c5282;
+            border: 1px solid #90cdf4;
+            display: block;
+        }
+        
+        .user-info {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .user-info h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        
+        .user-info p {
+            margin-bottom: 8px;
+            color: #718096;
+        }
+        
+        .user-info strong {
+            color: #4a5568;
+        }
+        
+        .api-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .api-section h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        
+        .api-endpoint {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        
+        .api-method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        
+        .api-method.get {
+            background-color: #48bb78;
+            color: white;
+        }
+        
+        .api-method.post {
+            background-color: #4299e1;
+            color: white;
+        }
+        
+        .api-method.put {
+            background-color: #ed8936;
+            color: white;
+        }
+        
+        .api-method.delete {
+            background-color: #f56565;
+            color: white;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background-color: #48bb78;
+        }
+        
+        .status-offline {
+            background-color: #f56565;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #718096;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab:hover {
+            color: #4a5568;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .template-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .template-item {
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .template-item h4 {
+            color: #4a5568;
+            margin-bottom: 5px;
+        }
+        
+        .template-item p {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .template-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #a0aec0;
+            margin-top: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: white;
+            opacity: 0.8;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ComfyUI 用户认证系统</h1>
+            <p>前端演示界面 - 使用 RESTful API 管理用户和模板</p>
+            <div style="margin-top: 10px;">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">检查服务器状态...</span>
+            </div>
+            <div style="margin-top: 15px;">
+                <a href="/user_auth_settings.html" target="_blank" class="btn" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;">
+                    <span>⚙️</span> 用户认证设置
+                </a>
+                <a href="/" target="_blank" class="btn" style="background: #333; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
+                    <span>🏠</span> 返回ComfyUI
+                </a>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('auth')">用户认证</div>
+            <div class="tab" onclick="switchTab('templates')">模板管理</div>
+            <div class="tab" onclick="switchTab('api')">API 文档</div>
+        </div>
+        
+        <!-- 用户认证标签页 -->
+        <div id="auth-tab" class="tab-content active">
+            <div class="dashboard">
+                <!-- 注册表单 -->
+                <div class="card">
+                    <h2>用户注册</h2>
+                    <div id="registerMessage" class="message"></div>
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label for="registerUsername">用户名</label>
+                            <input type="text" id="registerUsername" placeholder="请输入用户名 (3-50字符)" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">邮箱 (可选)</label>
+                            <input type="email" id="registerEmail" placeholder="请输入邮箱地址">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerDisplayName">显示名称 (可选)</label>
+                            <input type="text" id="registerDisplayName" placeholder="请输入显示名称">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">密码</label>
+                            <input type="password" id="registerPassword" placeholder="至少8位，包含大小写字母、数字和特殊字符" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerConfirmPassword">确认密码</label>
+                            <input type="password" id="registerConfirmPassword" placeholder="请再次输入密码" required>
+                        </div>
+                        <button type="submit" class="btn btn-block">注册</button>
+                    </form>
+                </div>
+                
+                <!-- 登录表单 -->
+                <div class="card">
+                    <h2>用户登录</h2>
+                    <div id="loginMessage" class="message"></div>
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="loginUsername">用户名</label>
+                            <input type="text" id="loginUsername" placeholder="请输入用户名" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">密码</label>
+                            <input type="password" id="loginPassword" placeholder="请输入密码" required>
+                        </div>
+                        <button type="submit" class="btn btn-block">登录</button>
+                    </form>
+                    
+                    <div id="userInfo" class="user-info" style="display: none;">
+                        <h3>当前用户信息</h3>
+                        <p><strong>用户ID:</strong> <span id="currentUserId"></span></p>
+                        <p><strong>用户名:</strong> <span id="currentUsername"></span></p>
+                        <p><strong>显示名称:</strong> <span id="currentDisplayName"></span></p>
+                        <p><strong>邮箱:</strong> <span id="currentEmail"></span></p>
+                        <p><strong>是否管理员:</strong> <span id="currentIsAdmin"></span></p>
+                        <p><strong>创建时间:</strong> <span id="currentCreatedAt"></span></p>
+                        <p><strong>最后登录:</strong> <span id="currentLastLogin"></span></p>
+                        <div class="btn-group">
+                            <button class="btn btn-secondary" onclick="getCurrentUser()">刷新信息</button>
+                            <button class="btn btn-danger" onclick="logout()">退出登录</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 用户管理 -->
+            <div class="card" style="margin-top: 30px;">
+                <h2>用户管理</h2>
+                <div id="userManagementMessage" class="message"></div>
+                <div class="btn-group">
+                    <button class="btn" onclick="getCurrentUser()">获取当前用户</button>
+                    <button class="btn btn-secondary" onclick="updateProfile()">更新资料</button>
+                    <button class="btn btn-secondary" onclick="changePassword()">修改密码</button>
+                    <button class="btn btn-success" onclick="refreshSession()">刷新会话</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 模板管理标签页 -->
+        <div id="templates-tab" class="tab-content">
+            <div class="dashboard">
+                <!-- 创建模板 -->
+                <div class="card">
+                    <h2>创建模板</h2>
+                    <div id="createTemplateMessage" class="message"></div>
+                    <form id="createTemplateForm">
+                        <div class="form-group">
+                            <label for="templateName">模板名称</label>
+                            <input type="text" id="templateName" placeholder="请输入模板名称" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="templateDescription">描述 (可选)</label>
+                            <textarea id="templateDescription" placeholder="请输入模板描述" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="templateCategory">分类 (可选)</label>
+                            <input type="text" id="templateCategory" placeholder="请输入分类">
+                        </div>
+                        <div class="form-group">
+                            <label for="templateTags">标签 (可选，用逗号分隔)</label>
+                            <input type="text" id="templateTags" placeholder="例如: stable diffusion,文生图,基础">
+                        </div>
+                        <div class="form-group">
+                            <label for="templateWorkflow">工作流数据 (JSON)</label>
+                            <textarea id="templateWorkflow" placeholder='{"nodes": []}' rows="6" required>{"nodes": []}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="templateIsPublic"> 公开模板
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-block">创建模板</button>
+                    </form>
+                </div>
+                
+                <!-- 模板列表 -->
+                <div class="card">
+                    <h2>我的模板</h2>
+                    <div id="templatesMessage" class="message"></div>
+                    <div class="btn-group">
+                        <button class="btn" onclick="listTemplates()">刷新列表</button>
+                        <button class="btn btn-secondary" onclick="listPublicTemplates()">查看公开模板</button>
+                    </div>
+                    <div id="templatesList" class="template-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API 文档标签页 -->
+        <div id="api-tab" class="tab-content">
+            <div class="card">
+                <h2>API 端点文档</h2>
+                <div class="api-section">
+                    <h3>用户认证 API</h3>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/auth/register</strong> - 用户注册
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求体: {"username": "string", "password": "string", "email": "string", "display_name": "string"}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/auth/login</strong> - 用户登录
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求体: {"username": "string", "password": "string"}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <strong>/api/auth/me</strong> - 获取当前用户信息
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method put">PUT</span>
+                        <strong>/api/auth/profile</strong> - 更新用户资料
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}<br>
+                            请求体: {"display_name": "string", "email": "string"}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/auth/change-password</strong> - 修改密码
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}<br>
+                            请求体: {"old_password": "string", "new_password": "string"}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/auth/refresh</strong> - 刷新会话令牌
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}<br>
+                            请求体: {"refresh_token": "string"}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/auth/logout</strong> - 用户登出
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="api-section">
+                    <h3>模板管理 API</h3>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/templates</strong> - 创建模板
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}<br>
+                            请求体: {"name": "string", "workflow_data": "string", "description": "string", "category": "string", "tags": "string", "is_public": boolean}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <strong>/api/templates</strong> - 获取模板列表
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}<br>
+                            查询参数: include_public, page, page_size, sort_by, sort_order, category, search
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <strong>/api/templates/{id}</strong> - 获取模板详情
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method put">PUT</span>
+                        <strong>/api/templates/{id}</strong> - 更新模板
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}<br>
+                            请求体: {"name": "string", "description": "string", "category": "string", "tags": "string", "is_public": boolean}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method delete">DELETE</span>
+                        <strong>/api/templates/{id}</strong> - 删除模板
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/templates/{id}/favorite</strong> - 切换收藏状态
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <strong>/api/templates/{id}/use</strong> - 使用模板（增加使用次数）
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <strong>/api/templates/categories</strong> - 获取分类列表
+                        <div style="margin-top: 10px; color: #718096;">
+                            请求头: Authorization: Bearer {session_token}<br>
+                            查询参数: include_public
+                        </div>
+                    </div>
+                    
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <strong>/api/templates/popular</strong> - 获取热门模板
+                        <div style="margin-top: 10px; color: #718096;">
+                            查询参数: limit, days
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>ComfyUI 用户认证系统前端演示 | 服务器: <span id="serverUrl">自动检测中...</span></p>
+            <p>
+                <a href="/user_auth_settings.html" target="_blank" style="color: #4f46e5; text-decoration: none; font-weight: 500; margin-right: 20px;">
+                    ⚙️ 用户认证设置
+                </a>
+                <a href="/" target="_blank" style="color: #4f46e5; text-decoration: none; font-weight: 500; margin-right: 20px;">
+                    🏠 返回ComfyUI主界面
+                </a>
+                <a href="/test_frontend_api.html" target="_blank" style="color: #4f46e5; text-decoration: none; font-weight: 500;">
+                    🧪 API测试页面
+                </a>
+            </p>
+            <p>© 2026 ComfyUI 用户认证系统 | 版本 1.0.0</p>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentSessionToken = localStorage.getItem('comfyui_session_token') || '';
+        let currentUser = null;
+        // 自动获取当前主机地址
+        const getBaseUrl = () => {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port || (protocol === 'https:' ? '443' : '80');
+            return `${protocol}//${hostname}:${port}`;
+        };
+        
+        const API_BASE_URL = getBaseUrl();
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 更新服务器地址显示
+            updateServerUrlDisplay();
+            
+            checkServerStatus();
+            updateUI();
+            
+            // 检查是否有保存的会话令牌
+            if (currentSessionToken) {
+                getCurrentUser();
+            }
+        });
+        
+        // 更新服务器地址显示
+        function updateServerUrlDisplay() {
+            const serverUrlElement = document.getElementById('serverUrl');
+            if (serverUrlElement) {
+                serverUrlElement.textContent = API_BASE_URL;
+                serverUrlElement.title = `当前API地址: ${API_BASE_URL}`;
+            }
+        }
+        
+        // 检查服务器状态
+        async function checkServerStatus() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/`);
+                if (response.ok) {
+                    statusIndicator.className = 'status-indicator status-online';
+                    statusText.textContent = '服务器在线';
+                } else {
+                    statusIndicator.className = 'status-indicator status-offline';
+                    statusText.textContent = '服务器离线';
+                }
+            } catch (error) {
+                statusIndicator.className = 'status-indicator status-offline';
+                statusText.textContent = '无法连接到服务器';
+            }
+        }
+        
+        // 切换标签页
+        function switchTab(tabName) {
+            // 隐藏所有标签页
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 移除所有标签的激活状态
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 显示选中的标签页
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // 激活选中的标签
+            document.querySelectorAll('.tab').forEach(tab => {
+                if (tab.textContent.includes(getTabTitle(tabName))) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            // 如果是模板标签页，加载模板列表
+            if (tabName === 'templates' && currentSessionToken) {
+                listTemplates();
+            }
+        }
+        
+        function getTabTitle(tabName) {
+            const titles = {
+                'auth': '用户认证',
+                'templates': '模板管理',
+                'api': 'API 文档'
+            };
+            return titles[tabName] || tabName;
+        }
+        
+        // 显示消息
+        function showMessage(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+            
+            // 自动隐藏错误和成功消息
+            if (type === 'error' || type === 'success') {
+                setTimeout(() => {
+                    element.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // 隐藏消息
+        function hideMessage(elementId) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'none';
+        }
+        
+        // 更新UI状态
+        function updateUI() {
+            const userInfo = document.getElementById('userInfo');
+            if (currentUser) {
+                userInfo.style.display = 'block';
+                document.getElementById('currentUserId').textContent = currentUser.user_id;
+                document.getElementById('currentUsername').textContent = currentUser.username;
+                document.getElementById('currentDisplayName').textContent = currentUser.display_name || '未设置';
+                document.getElementById('currentEmail').textContent = currentUser.email || '未设置';
+                document.getElementById('currentIsAdmin').textContent = currentUser.is_admin ? '是' : '否';
+                document.getElementById('currentCreatedAt').textContent = currentUser.created_at || '未知';
+                document.getElementById('currentLastLogin').textContent = currentUser.last_login_at || '从未登录';
+            } else {
+                userInfo.style.display = 'none';
+            }
+        }
+        
+        // 用户注册
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('registerUsername').value;
+            const email = document.getElementById('registerEmail').value;
+            const displayName = document.getElementById('registerDisplayName').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            
+            // 验证密码
+            if (password !== confirmPassword) {
+                showMessage('registerMessage', '两次输入的密码不一致', 'error');
+                return;
+            }
+            
+            // 密码强度验证
+            if (password.length < 8) {
+                showMessage('registerMessage', '密码长度至少需要8个字符', 'error');
+                return;
+            }
+            
+            if (!/[A-Z]/.test(password)) {
+                showMessage('registerMessage', '密码必须包含至少一个大写字母', 'error');
+                return;
+            }
+            
+            if (!/[a-z]/.test(password)) {
+                showMessage('registerMessage', '密码必须包含至少一个小写字母', 'error');
+                return;
+            }
+            
+            if (!/\d/.test(password)) {
+                showMessage('registerMessage', '密码必须包含至少一个数字', 'error');
+                return;
+            }
+            
+            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+                showMessage('registerMessage', '密码必须包含至少一个特殊字符', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        email: email || undefined,
+                        display_name: displayName || undefined
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('registerMessage', `注册成功！用户ID: ${data.data.user_id}`, 'success');
+                    // 清空表单
+                    document.getElementById('registerForm').reset();
+                } else {
+                    showMessage('registerMessage', `注册失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('registerMessage', `请求失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 用户登录
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('loginMessage', '登录成功！', 'success');
+                    currentSessionToken = data.data.session_token;
+                    currentUser = {
+                        user_id: data.data.user_id,
+                        username: data.data.username,
+                        display_name: data.data.display_name,
+                        email: data.data.email,
+                        is_admin: data.data.is_admin,
+                        created_at: data.data.created_at,
+                        last_login_at: data.data.last_login_at
+                    };
+                    
+                    // 保存会话令牌到本地存储
+                    localStorage.setItem('comfyui_session_token', currentSessionToken);
+                    
+                    // 更新UI
+                    updateUI();
+                    
+                    // 清空表单
+                    document.getElementById('loginForm').reset();
+                    
+                    // 切换到用户信息显示
+                    switchTab('auth');
+                } else {
+                    showMessage('loginMessage', `登录失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('loginMessage', `请求失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 获取当前用户信息
+        async function getCurrentUser() {
+            if (!currentSessionToken) {
+                showMessage('userManagementMessage', '请先登录', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentUser = data.data;
+                    updateUI();
+                    showMessage('userManagementMessage', '用户信息已更新', 'success');
+                } else {
+                    showMessage('userManagementMessage', `获取用户信息失败: ${data.message}`, 'error');
+                    // 如果令牌失效，清除本地存储
+                    if (response.status === 401) {
+                        localStorage.removeItem('comfyui_session_token');
+                        currentSessionToken = '';
+                        currentUser = null;
+                        updateUI();
+                    }
+                }
+            } catch (error) {
+                showMessage('userManagementMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 更新用户资料
+        async function updateProfile() {
+            if (!currentSessionToken) {
+                showMessage('userManagementMessage', '请先登录', 'error');
+                return;
+            }
+            
+            const displayName = prompt('请输入新的显示名称:', currentUser.display_name || '');
+            const email = prompt('请输入新的邮箱:', currentUser.email || '');
+            
+            if (displayName === null && email === null) {
+                return; // 用户取消
+            }
+            
+            const updateData = {};
+            if (displayName !== null) updateData.display_name = displayName;
+            if (email !== null) updateData.email = email;
+            
+            if (Object.keys(updateData).length === 0) {
+                showMessage('userManagementMessage', '没有需要更新的信息', 'info');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('userManagementMessage', '资料更新成功', 'success');
+                    // 刷新用户信息
+                    getCurrentUser();
+                } else {
+                    showMessage('userManagementMessage', `更新失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('userManagementMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 修改密码
+        async function changePassword() {
+            if (!currentSessionToken) {
+                showMessage('userManagementMessage', '请先登录', 'error');
+                return;
+            }
+            
+            const oldPassword = prompt('请输入当前密码:');
+            if (!oldPassword) return;
+            
+            const newPassword = prompt('请输入新密码:');
+            if (!newPassword) return;
+            
+            const confirmPassword = prompt('请确认新密码:');
+            if (!confirmPassword) return;
+            
+            if (newPassword !== confirmPassword) {
+                showMessage('userManagementMessage', '两次输入的新密码不一致', 'error');
+                return;
+            }
+            
+            // 密码强度验证
+            if (newPassword.length < 8) {
+                showMessage('userManagementMessage', '新密码长度至少需要8个字符', 'error');
+                return;
+            }
+            
+            if (!/[A-Z]/.test(newPassword)) {
+                showMessage('userManagementMessage', '新密码必须包含至少一个大写字母', 'error');
+                return;
+            }
+            
+            if (!/[a-z]/.test(newPassword)) {
+                showMessage('userManagementMessage', '新密码必须包含至少一个小写字母', 'error');
+                return;
+            }
+            
+            if (!/\d/.test(newPassword)) {
+                showMessage('userManagementMessage', '新密码必须包含至少一个数字', 'error');
+                return;
+            }
+            
+            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+                showMessage('userManagementMessage', '新密码必须包含至少一个特殊字符', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    },
+                    body: JSON.stringify({
+                        old_password: oldPassword,
+                        new_password: newPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('userManagementMessage', '密码修改成功', 'success');
+                } else {
+                    showMessage('userManagementMessage', `密码修改失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('userManagementMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 刷新会话
+        async function refreshSession() {
+            if (!currentSessionToken) {
+                showMessage('userManagementMessage', '请先登录', 'error');
+                return;
+            }
+            
+            // 注意：这里需要保存刷新令牌，但为了简化演示，我们只显示消息
+            showMessage('userManagementMessage', '刷新会话功能需要刷新令牌，请在API文档中查看详细用法', 'info');
+        }
+        
+        // 用户登出
+        async function logout() {
+            if (!currentSessionToken) {
+                showMessage('userManagementMessage', '您尚未登录', 'info');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('userManagementMessage', '已成功登出', 'success');
+                    // 清除本地存储
+                    localStorage.removeItem('comfyui_session_token');
+                    currentSessionToken = '';
+                    currentUser = null;
+                    updateUI();
+                } else {
+                    showMessage('userManagementMessage', `登出失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('userManagementMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 创建模板
+        document.getElementById('createTemplateForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!currentSessionToken) {
+                showMessage('createTemplateMessage', '请先登录', 'error');
+                return;
+            }
+            
+            const name = document.getElementById('templateName').value;
+            const description = document.getElementById('templateDescription').value;
+            const category = document.getElementById('templateCategory').value;
+            const tags = document.getElementById('templateTags').value;
+            const workflowData = document.getElementById('templateWorkflow').value;
+            const isPublic = document.getElementById('templateIsPublic').checked;
+            
+            // 验证工作流数据是否为有效的JSON
+            try {
+                JSON.parse(workflowData);
+            } catch (error) {
+                showMessage('createTemplateMessage', '工作流数据必须是有效的JSON格式', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/templates`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        workflow_data: workflowData,
+                        description: description || undefined,
+                        category: category || undefined,
+                        tags: tags || undefined,
+                        is_public: isPublic
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('createTemplateMessage', `模板创建成功！模板ID: ${data.data.template_id}`, 'success');
+                    // 清空表单
+                    document.getElementById('createTemplateForm').reset();
+                    document.getElementById('templateWorkflow').value = '{"nodes": []}';
+                    // 刷新模板列表
+                    listTemplates();
+                } else {
+                    showMessage('createTemplateMessage', `模板创建失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('createTemplateMessage', `请求失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 获取模板列表
+        async function listTemplates() {
+            if (!currentSessionToken) {
+                showMessage('templatesMessage', '请先登录', 'error');
+                return;
+            }
+            
+            const templatesList = document.getElementById('templatesList');
+            templatesList.innerHTML = '<div class="loading">加载中...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/templates?include_public=false&page=1&page_size=10`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    templatesList.innerHTML = '';
+                    
+                    if (data.data.templates.length === 0) {
+                        templatesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #718096;">暂无模板</div>';
+                        return;
+                    }
+                    
+                    data.data.templates.forEach(template => {
+                        const templateItem = document.createElement('div');
+                        templateItem.className = 'template-item';
+                        
+                        const isPublic = template.is_public ? '<span style="color: #48bb78; font-size: 12px; margin-left: 10px;">公开</span>' : '';
+                        const isFavorite = template.is_favorite ? '<span style="color: #ed8936; font-size: 12px; margin-left: 10px;">收藏</span>' : '';
+                        
+                        templateItem.innerHTML = `
+                            <h4>${template.name} ${isPublic} ${isFavorite}</h4>
+                            <p>${template.description || '无描述'}</p>
+                            <div class="template-meta">
+                                <span>分类: ${template.category || '未分类'}</span>
+                                <span>查看: ${template.view_count}</span>
+                                <span>使用: ${template.use_count}</span>
+                                <span>创建: ${new Date(template.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button class="btn" style="padding: 5px 10px; font-size: 12px;" onclick="viewTemplate('${template.template_id}')">查看</button>
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;" onclick="toggleFavorite('${template.template_id}')">${template.is_favorite ? '取消收藏' : '收藏'}</button>
+                                <button class="btn btn-success" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;" onclick="useTemplate('${template.template_id}')">使用</button>
+                                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;" onclick="deleteTemplate('${template.template_id}')">删除</button>
+                            </div>
+                        `;
+                        
+                        templatesList.appendChild(templateItem);
+                    });
+                    
+                    showMessage('templatesMessage', `找到 ${data.data.total_count} 个模板`, 'success');
+                } else {
+                    templatesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #f56565;">加载失败</div>';
+                    showMessage('templatesMessage', `获取模板列表失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                templatesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #f56565;">请求失败</div>';
+                showMessage('templatesMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 查看公开模板
+        async function listPublicTemplates() {
+            const templatesList = document.getElementById('templatesList');
+            templatesList.innerHTML = '<div class="loading">加载中...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/templates/popular?limit=10&days=30`);
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    templatesList.innerHTML = '';
+                    
+                    if (data.data.templates.length === 0) {
+                        templatesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #718096;">暂无公开模板</div>';
+                        return;
+                    }
+                    
+                    data.data.templates.forEach(template => {
+                        const templateItem = document.createElement('div');
+                        templateItem.className = 'template-item';
+                        
+                        templateItem.innerHTML = `
+                            <h4>${template.name} <span style="color: #48bb78; font-size: 12px; margin-left: 10px;">公开</span></h4>
+                            <p>${template.description || '无描述'}</p>
+                            <div class="template-meta">
+                                <span>作者: ${template.username || '匿名'}</span>
+                                <span>分类: ${template.category || '未分类'}</span>
+                                <span>查看: ${template.view_count}</span>
+                                <span>使用: ${template.use_count}</span>
+                            </div>
+                        `;
+                        
+                        templatesList.appendChild(templateItem);
+                    });
+                    
+                    showMessage('templatesMessage', `找到 ${data.data.templates.length} 个热门模板`, 'success');
+                } else {
+                    templatesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #f56565;">加载失败</div>';
+                    showMessage('templatesMessage', `获取公开模板失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                templatesList.innerHTML = '<div style="text-align: center; padding: 20px; color: #f56565;">请求失败</div>';
+                showMessage('templatesMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 查看模板详情
+        async function viewTemplate(templateId) {
+            if (!currentSessionToken) {
+                showMessage('templatesMessage', '请先登录', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/templates/${templateId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`模板详情:\n\n名称: ${data.data.name}\n描述: ${data.data.description || '无'}\n分类: ${data.data.category || '未分类'}\n标签: ${data.data.tags || '无'}\n公开: ${data.data.is_public ? '是' : '否'}\n收藏: ${data.data.is_favorite ? '是' : '否'}\n查看次数: ${data.data.view_count}\n使用次数: ${data.data.use_count}`);
+                } else {
+                    showMessage('templatesMessage', `获取模板详情失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('templatesMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 切换收藏状态
+        async function toggleFavorite(templateId) {
+            if (!currentSessionToken) {
+                showMessage('templatesMessage', '请先登录', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/templates/${templateId}/favorite`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('templatesMessage', `收藏状态已更新: ${data.data.is_favorite ? '已收藏' : '未收藏'}`, 'success');
+                    // 刷新模板列表
+                    listTemplates();
+                } else {
+                    showMessage('templatesMessage', `更新收藏状态失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('templatesMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 使用模板
+        async function useTemplate(templateId) {
+            if (!currentSessionToken) {
+                showMessage('templatesMessage', '请先登录', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/templates/${templateId}/use`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('templatesMessage', '模板使用次数已增加', 'success');
+                    // 刷新模板列表
+                    listTemplates();
+                } else {
+                    showMessage('templatesMessage', `增加使用次数失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('templatesMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 删除模板
+        async function deleteTemplate(templateId) {
+            if (!currentSessionToken) {
+                showMessage('templatesMessage', '请先登录', 'error');
+                return;
+            }
+            
+            if (!confirm('确定要删除这个模板吗？此操作不可撤销。')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/templates/${templateId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('templatesMessage', '模板已删除', 'success');
+                    // 刷新模板列表
+                    listTemplates();
+                } else {
+                    showMessage('templatesMessage', `删除模板失败: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('templatesMessage', `请求失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 每30秒检查一次服务器状态
+        setInterval(checkServerStatus, 30000);
+    </script>
+</body>
+</html>

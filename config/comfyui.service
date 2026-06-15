@@ -1,0 +1,46 @@
+[Unit]
+Description=ComfyUI - Stable Diffusion WebUI
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=gpu
+Group=gpu
+WorkingDirectory=/home/gpu/ComfyUI
+Environment="PATH=/home/gpu/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/home/gpu/ComfyUI"
+Environment="CUDA_VISIBLE_DEVICES=0"
+Environment="PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128"
+Environment="HF_HUB_DISABLE_TELEMETRY=1"
+Environment="DO_NOT_TRACK=1"
+
+# 使用启动脚本
+ExecStart=/home/gpu/ComfyUI/start_comfyui.sh start
+ExecStop=/home/gpu/ComfyUI/start_comfyui.sh stop
+ExecReload=/home/gpu/ComfyUI/start_comfyui.sh restart
+
+# 重启策略
+Restart=on-failure
+RestartSec=10s
+StartLimitInterval=60
+StartLimitBurst=3
+
+# 资源限制
+LimitNOFILE=65536
+LimitNPROC=65536
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/gpu/ComfyUI /home/gpu/.cache
+
+# 日志设置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=comfyui
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户认证设置 - ComfyUI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background: #121212;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+            color: #ffffff;
+            padding: 30px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.8;
+            color: #b0b0b0;
+        }
+        
+        .nav {
+            background: #252525;
+            padding: 15px 30px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .nav ul {
+            display: flex;
+            list-style: none;
+            gap: 20px;
+        }
+        
+        .nav a {
+            color: #b0b0b0;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .nav a:hover {
+            background: #333;
+            color: #ffffff;
+        }
+        
+        .nav a.active {
+            background: #4f46e5;
+            color: #ffffff;
+        }
+        
+        .content {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .section {
+            background: #252525;
+            border-radius: 8px;
+            padding: 25px;
+            border: 1px solid #333;
+        }
+        
+        .section h2 {
+            color: #ffffff;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section h2 i {
+            color: #4f46e5;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #b0b0b0;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        
+        .form-control::placeholder {
+            color: #666;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #333;
+            color: #ffffff;
+        }
+        
+        .btn-secondary:hover {
+            background: #444;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+        
+        .btn-block {
+            width: 100%;
+        }
+        
+        .user-info {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4f46e5;
+        }
+        
+        .user-info h3 {
+            color: #ffffff;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .user-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .user-detail {
+            background: #252525;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+        }
+        
+        .user-detail label {
+            display: block;
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .user-detail .value {
+            color: #ffffff;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal {
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid #333;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .modal-header h3 {
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #ffffff;
+            background: #333;
+        }
+        
+        .modal-body {
+            margin-bottom: 25px;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid #f59e0b;
+            color: #f59e0b;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #333;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .user-list {
+            margin-top: 20px;
+        }
+        
+        .user-item {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-item-info {
+            flex: 1;
+        }
+        
+        .user-item-name {
+            color: #ffffff;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .user-item-email {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .user-item-role {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #333;
+            color: #b0b0b0;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        
+        .user-item-role.admin {
+            background: rgba(79, 70, 229, 0.2);
+            color: #8b5cf6;
+        }
+        
+        .user-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4f46e5;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #333;
+            background: #1a1a1a;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav ul {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .nav a {
+                display: block;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 用户认证设置</h1>
+            <p>管理ComfyUI本地用户认证系统</p>
+        </div>
+        
+        <div class="nav">
+            <ul>
+                <li><a href="#" class="active" onclick="showSection('user-info')">👤 用户信息</a></li>
+                <li><a href="#" onclick="showSection('auth-settings')">⚙️ 认证设置</a></li>
+                <li><a href="#" onclick="showSection('user-management')">👥 用户管理</a></li>
+                <li><a href="#" onclick="showSection('security')">🛡️ 安全设置</a></li>
+                <li><a href="/" target="_blank">🏠 返回ComfyUI</a></li>
+                <li><a href="/user_auth_frontend.html" target="_blank">🔑 用户认证界面</a></li>
+            </ul>
+        </div>
+        
+        <div class="content">
+            <!-- 用户信息部分 -->
+            <div id="user-info-section" class="section">
+                <h2><i>👤</i> 当前用户信息</h2>
+                <div id="user-info-content" class="user-info">
+                    <p>正在加载用户信息...</p>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-primary btn-block" onclick="showLoginModal()">
+                        <span>🔑</span> 登录
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-secondary btn-block" onclick="showRegisterModal()">
+                        <span>📝</span> 注册新用户
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-danger btn-block" onclick="logout()" id="logout-btn" style="display: none;">
+                        <span>🚪</span> 退出登录
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 认证设置部分 -->
+            <div id="auth-settings-section" class="section" style="display: none;">
+                <h2><i>⚙️</i> 认证设置</h2>
+                <div class="form-group">
+                    <label for="session-timeout">会话超时时间（分钟）</label>
+                    <input type="number" id="session-timeout" class="form-control" value="60" min="5" max="1440">
+                    <small style="color: #888; display: block; margin-top: 5px;">用户会话保持活跃的时间</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="max-login-attempts">最大登录尝试次数</label>
+                    <input type="number" id="max-login-attempts" class="form-control" value="5" min="1" max="20">
+                    <small style="color: #888; display: block; margin-top: 5px;">登录失败次数限制</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password-min-length">密码最小长度</label>
+                    <input type="number" id="password-min-length" class="form-control" value="8" min="6" max="32">
+                    <small style="color: #888; display: block; margin-top: 5px;">用户密码的最小长度要求</small>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="saveAuthSettings()">
+                        <span>💾</span> 保存设置
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 用户管理部分 -->
+            <div id="user-management-section" class="section" style="display: none;">
+                <h2><i>👥</i> 用户管理</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-users">0</div>
+                        <div class="stat-label">总用户数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="active-users">0</div>
+                        <div class="stat-label">活跃用户</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="admin-users">0</div>
+                        <div class="stat-label">管理员</div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="loadUserList()">
+                        <span>🔄</span> 刷新用户列表
+                    </button>
+                    <button class="btn btn-success" onclick="showCreateUserModal()">
+                        <span>➕</span> 创建新用户
+                    </button>
+                </div>
+                
+                <div id="user-list" class="user-list">
+                    <p>加载用户列表中...</p>
+                </div>
+            </div>
+            
+            <!-- 安全设置部分 -->
+            <div id="security-section" class="section" style="display: none;">
+                <h2><i>🛡️</i> 安全设置</h2>
+                <div class="form-group">
+                    <label for="rate-limit-enabled">启用速率限制</label>
+                    <select id="rate-limit-enabled" class="form-control">
+                        <option value="true">是</option>
+                        <option value="false">否</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="requests-per-minute">每分钟请求限制</label>
+                    <input type="number" id="requests-per-minute" class="form-control" value="60" min="1" max="1000">
+                </div>
+                
+                <div class="form-group">
+                    <label for="ip-whitelist">IP白名单（每行一个）</label>
+                    <textarea id="ip-whitelist" class="form-control" rows="4" placeholder="例如：&#10;192.168.1.0/24&#10;10.0.0.1"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="saveSecuritySettings()">
+                        <span>💾</span> 保存安全设置
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>ComfyUI 用户认证系统 | 本地用户管理</p>
+            <p>服务器地址: <span id="server-url">检测中...</span></p>
+        </div>
+    </div>
+    
+    <!-- 登录模态框 -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🔑 用户登录</h3>
+                <button class="modal-close" onclick="hideLoginModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="login-alert" class="alert" style="display: none;"></div>
+                <div class="form-group">
+                    <label for="login-username">用户名</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">密码</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="请输入密码">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideLoginModal()">取消</button>
+                <button class="btn btn-primary" onclick="performLogin()" id="login-btn">
+                    <span>🔑</span> 登录
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 注册模态框 -->
+    <div id="register-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📝 用户注册</h3>
+                <button class="modal-close" onclick="hideRegisterModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="register-alert" class="alert" style="display: none;"></div>
+                <div class="form-group">
+                    <label for="register-username">用户名</label>
+                    <input type="text" id="register-username" class="form-control" placeholder="请输入用户名（3-20个字符）">
+                </div>
+                <div class="form-group">
+                    <label for="register-email">邮箱</label>
+                    <input type="email" id="register-email" class="form-control" placeholder="请输入邮箱地址">
+                </div>
+                <div class="form-group">
+                    <label for="register-display-name">显示名称</label>
+                    <input type="text" id="register-display-name" class="form-control" placeholder="请输入显示名称（可选）">
+                </div>
+                <div class="form-group">
+                    <label for="register-password">密码</label>
+                    <input type="password" id="register-password" class="form-control" placeholder="请输入密码（至少8个字符）">
+                </div>
+                <div class="form-group">
+                    <label for="register-confirm-password">确认密码</label>
+                    <input type="password" id="register-confirm-password" class="form-control" placeholder="请再次输入密码">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideRegisterModal()">取消</button>
+                <button class="btn btn-success" onclick="performRegister()" id="register-btn">
+                    <span>📝</span> 注册
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建用户模态框 -->
+    <div id="create-user-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>➕ 创建新用户</h3>
+                <button class="modal-close" onclick="hideCreateUserModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="create-user-alert" class="alert" style="display: none;"></div>
+                <div class="form-group">
+                    <label for="create-username">用户名</label>
+                    <input type="text" id="create-username" class="form-control" placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label for="create-email">邮箱</label>
+                    <input type="email" id="create-email" class="form-control" placeholder="请输入邮箱地址">
+                </div>
+                <div class="form-group">
+                    <label for="create-display-name">显示名称</label>
+                    <input type="text" id="create-display-name" class="form-control" placeholder="请输入显示名称">
+                </div>
+                <div class="form-group">
+                    <label for="create-password">密码</label>
+                    <input type="password" id="create-password" class="form-control" placeholder="请输入密码">
+                </div>
+                <div class="form-group">
+                    <label for="create-is-admin">管理员权限</label>
+                    <select id="create-is-admin" class="form-control">
+                        <option value="false">普通用户</option>
+                        <option value="true">管理员</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideCreateUserModal()">取消</button>
+                <button class="btn btn-success" onclick="performCreateUser()" id="create-user-btn">
+                    <span>➕</span> 创建用户
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let currentUser = null;
+        let currentSessionToken = null;
+        const API_BASE_URL = window.location.origin;
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('server-url').textContent = API_BASE_URL;
+            checkLoginStatus();
+            loadUserStats();
+        });
+        
+        // 显示/隐藏部分
+        function showSection(sectionId) {
+            // 隐藏所有部分
+            document.querySelectorAll('.section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // 移除所有活动链接
+            document.querySelectorAll('.nav a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // 显示选中的部分
+            document.getElementById(`${sectionId}-section`).style.display = 'block';
+            
+            // 设置活动链接
+            event.target.classList.add('active');
+            
+            // 如果是用户管理部分，加载用户列表
+            if (sectionId === 'user-management') {
+                loadUserList();
+            }
+        }
+        
+        // 检查登录状态
+        async function checkLoginStatus() {
+            const token = localStorage.getItem('comfyui_auth_token');
+            if (!token) {
+                updateUserInfo(null);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.status === 200) {
+                    const result = await response.json();
+                    if (result.success) {
+                        currentUser = result.data;
+                        currentSessionToken = token;
+                        updateUserInfo(currentUser);
+                    } else {
+                        localStorage.removeItem('comfyui_auth_token');
+                        updateUserInfo(null);
+                    }
+                } else {
+                    localStorage.removeItem('comfyui_auth_token');
+                    updateUserInfo(null);
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                updateUserInfo(null);
+            }
+        }
+        
+        // 更新用户信息显示
+        function updateUserInfo(user) {
+            const userInfoContent = document.getElementById('user-info-content');
+            const logoutBtn = document.getElementById('logout-btn');
+            
+            if (user) {
+                userInfoContent.innerHTML = `
+                    <h3>👤 当前登录用户</h3>
+                    <div class="user-details">
+                        <div class="user-detail">
+                            <label>用户名</label>
+                            <div class="value">${user.username}</div>
+                        </div>
+                        <div class="user-detail">
+                            <label>邮箱</label>
+                            <div class="value">${user.email || '未设置'}</div>
+                        </div>
+                        <div class="user-detail">
+                            <label>显示名称</label>
+                            <div class="value">${user.display_name || user.username}</div>
+                        </div>
+                        <div class="user-detail">
+                            <label>用户角色</label>
+                            <div class="value">${user.is_admin ? '管理员' : '普通用户'}</div>
+                        </div>
+                        <div class="user-detail">
+                            <label>创建时间</label>
+                            <div class="value">${new Date(user.created_at).toLocaleString()}</div>
+                        </div>
+                        <div class="user-detail">
+                            <label>最后登录</label>
+                            <div class="value">${user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '从未登录'}</div>
+                        </div>
+                    </div>
+                `;
+                logoutBtn.style.display = 'block';
+            } else {
+                userInfoContent.innerHTML = `
+                    <h3>👤 未登录</h3>
+                    <p>请登录以管理用户认证设置</p>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="showLoginModal()">
+                            <span>🔑</span> 立即登录
+                        </button>
+                        <button class="btn btn-secondary" onclick="showRegisterModal()" style="margin-left: 10px;">
+                            <span>📝</span> 注册新用户
+                        </button>
+                    </div>
+                `;
+                logoutBtn.style.display = 'none';
+            }
+        }
+        
+        // 显示登录模态框
+        function showLoginModal() {
+            document.getElementById('login-modal').style.display = 'flex';
+            document.getElementById('login-username').focus();
+        }
+        
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('login-alert').style.display = 'none';
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+        }
+        
+        // 执行登录
+        async function performLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const alertDiv = document.getElementById('login-alert');
+            const loginBtn = document.getElementById('login-btn');
+            
+            if (!username || !password) {
+                showAlert(alertDiv, '请输入用户名和密码', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            const originalText = loginBtn.innerHTML;
+            loginBtn.innerHTML = '<span class="loading"></span> 登录中...';
+            loginBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.status === 200 && result.success) {
+                    // 保存token
+                    localStorage.setItem('comfyui_auth_token', result.data.session_token);
+                    currentSessionToken = result.data.session_token;
+                    currentUser = result.data;
+                    
+                    showAlert(alertDiv, '登录成功！', 'success');
+                    setTimeout(() => {
+                        hideLoginModal();
+                        checkLoginStatus();
+                        loadUserStats();
+                    }, 1500);
+                } else {
+                    showAlert(alertDiv, result.message || '登录失败，请检查用户名和密码', 'error');
+                }
+            } catch (error) {
+                showAlert(alertDiv, '登录请求失败: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                loginBtn.innerHTML = originalText;
+                loginBtn.disabled = false;
+            }
+        }
+        
+        // 显示注册模态框
+        function showRegisterModal() {
+            document.getElementById('register-modal').style.display = 'flex';
+            document.getElementById('register-username').focus();
+        }
+        
+        // 隐藏注册模态框
+        function hideRegisterModal() {
+            document.getElementById('register-modal').style.display = 'none';
+            document.getElementById('register-alert').style.display = 'none';
+            document.getElementById('register-username').value = '';
+            document.getElementById('register-email').value = '';
+            document.getElementById('register-display-name').value = '';
+            document.getElementById('register-password').value = '';
+            document.getElementById('register-confirm-password').value = '';
+        }
+        
+        // 执行注册
+        async function performRegister() {
+            const username = document.getElementById('register-username').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const displayName = document.getElementById('register-display-name').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+            const alertDiv = document.getElementById('register-alert');
+            const registerBtn = document.getElementById('register-btn');
+            
+            // 验证输入
+            if (!username || username.length < 3 || username.length > 20) {
+                showAlert(alertDiv, '用户名必须为3-20个字符', 'error');
+                return;
+            }
+            
+            if (!email || !isValidEmail(email)) {
+                showAlert(alertDiv, '请输入有效的邮箱地址', 'error');
+                return;
+            }
+            
+            if (!password || password.length < 8) {
+                showAlert(alertDiv, '密码长度至少为8个字符', 'error');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showAlert(alertDiv, '两次输入的密码不一致', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            const originalText = registerBtn.innerHTML;
+            registerBtn.innerHTML = '<span class="loading"></span> 注册中...';
+            registerBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email,
+                        display_name: displayName || username,
+                        password: password
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.status === 200 && result.success) {
+                    showAlert(alertDiv, '注册成功！请使用新账户登录', 'success');
+                    setTimeout(() => {
+                        hideRegisterModal();
+                        showLoginModal();
+                        document.getElementById('login-username').value = username;
+                        document.getElementById('login-password').value = password;
+                    }, 1500);
+                } else {
+                    showAlert(alertDiv, result.message || '注册失败', 'error');
+                }
+            } catch (error) {
+                showAlert(alertDiv, '注册请求失败: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                registerBtn.innerHTML = originalText;
+                registerBtn.disabled = false;
+            }
+        }
+        
+        // 退出登录
+        async function logout() {
+            if (!currentSessionToken) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                // 无论成功与否，都清除本地状态
+                localStorage.removeItem('comfyui_auth_token');
+                currentUser = null;
+                currentSessionToken = null;
+                updateUserInfo(null);
+                
+                showAlert(document.getElementById('user-info-content'), '已退出登录', 'success');
+            } catch (error) {
+                console.error('退出登录失败:', error);
+                // 仍然清除本地状态
+                localStorage.removeItem('comfyui_auth_token');
+                currentUser = null;
+                currentSessionToken = null;
+                updateUserInfo(null);
+            }
+        }
+        
+        // 加载用户统计
+        async function loadUserStats() {
+            if (!currentSessionToken) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.status === 200) {
+                    const result = await response.json();
+                    if (result.success) {
+                        const users = result.data.users || [];
+                        const totalUsers = users.length;
+                        const activeUsers = users.filter(u => u.last_login_at).length;
+                        const adminUsers = users.filter(u => u.is_admin).length;
+                        
+                        document.getElementById('total-users').textContent = totalUsers;
+                        document.getElementById('active-users').textContent = activeUsers;
+                        document.getElementById('admin-users').textContent = adminUsers;
+                    }
+                }
+            } catch (error) {
+                console.error('加载用户统计失败:', error);
+            }
+        }
+        
+        // 加载用户列表
+        async function loadUserList() {
+            const userListDiv = document.getElementById('user-list');
+            
+            if (!currentSessionToken) {
+                userListDiv.innerHTML = '<p>请先登录以查看用户列表</p>';
+                return;
+            }
+            
+            userListDiv.innerHTML = '<p>加载中...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.status === 200) {
+                    const result = await response.json();
+                    if (result.success) {
+                        const users = result.data.users || [];
+                        
+                        if (users.length === 0) {
+                            userListDiv.innerHTML = '<p>暂无用户</p>';
+                            return;
+                        }
+                        
+                        let html = '';
+                        users.forEach(user => {
+                            html += `
+                                <div class="user-item">
+                                    <div class="user-item-info">
+                                        <div class="user-item-name">${user.display_name || user.username}</div>
+                                        <div class="user-item-email">${user.email || '无邮箱'}</div>
+                                        <span class="user-item-role ${user.is_admin ? 'admin' : ''}">
+                                            ${user.is_admin ? '管理员' : '普通用户'}
+                                        </span>
+                                    </div>
+                                    <div class="user-item-actions">
+                                        ${user.is_admin ? '' : `<button class="btn btn-sm btn-secondary" onclick="promoteUser('${user.user_id}')">设为管理员</button>`}
+                                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.user_id}', '${user.username}')">删除</button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        userListDiv.innerHTML = html;
+                    } else {
+                        userListDiv.innerHTML = `<p>加载失败: ${result.message}</p>`;
+                    }
+                } else {
+                    userListDiv.innerHTML = '<p>无权限查看用户列表</p>';
+                }
+            } catch (error) {
+                userListDiv.innerHTML = `<p>加载失败: ${error.message}</p>`;
+            }
+        }
+        
+        // 显示创建用户模态框
+        function showCreateUserModal() {
+            if (!currentSessionToken) {
+                alert('请先登录');
+                return;
+            }
+            
+            document.getElementById('create-user-modal').style.display = 'flex';
+            document.getElementById('create-username').focus();
+        }
+        
+        // 隐藏创建用户模态框
+        function hideCreateUserModal() {
+            document.getElementById('create-user-modal').style.display = 'none';
+            document.getElementById('create-user-alert').style.display = 'none';
+            document.getElementById('create-username').value = '';
+            document.getElementById('create-email').value = '';
+            document.getElementById('create-display-name').value = '';
+            document.getElementById('create-password').value = '';
+            document.getElementById('create-is-admin').value = 'false';
+        }
+        
+        // 执行创建用户
+        async function performCreateUser() {
+            const username = document.getElementById('create-username').value.trim();
+            const email = document.getElementById('create-email').value.trim();
+            const displayName = document.getElementById('create-display-name').value.trim();
+            const password = document.getElementById('create-password').value;
+            const isAdmin = document.getElementById('create-is-admin').value === 'true';
+            const alertDiv = document.getElementById('create-user-alert');
+            const createBtn = document.getElementById('create-user-btn');
+            
+            // 验证输入
+            if (!username || username.length < 3 || username.length > 20) {
+                showAlert(alertDiv, '用户名必须为3-20个字符', 'error');
+                return;
+            }
+            
+            if (!email || !isValidEmail(email)) {
+                showAlert(alertDiv, '请输入有效的邮箱地址', 'error');
+                return;
+            }
+            
+            if (!password || password.length < 8) {
+                showAlert(alertDiv, '密码长度至少为8个字符', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            const originalText = createBtn.innerHTML;
+            createBtn.innerHTML = '<span class="loading"></span> 创建中...';
+            createBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email,
+                        display_name: displayName || username,
+                        password: password,
+                        is_admin: isAdmin
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.status === 200 && result.success) {
+                    showAlert(alertDiv, '用户创建成功！', 'success');
+                    setTimeout(() => {
+                        hideCreateUserModal();
+                        loadUserList();
+                        loadUserStats();
+                    }, 1500);
+                } else {
+                    showAlert(alertDiv, result.message || '创建用户失败', 'error');
+                }
+            } catch (error) {
+                showAlert(alertDiv, '创建用户请求失败: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                createBtn.innerHTML = originalText;
+                createBtn.disabled = false;
+            }
+        }
+        
+        // 提升用户为管理员
+        async function promoteUser(userId) {
+            if (!confirm('确定要将此用户设为管理员吗？')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/promote`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.status === 200 && result.success) {
+                    alert('用户已成功设为管理员');
+                    loadUserList();
+                    loadUserStats();
+                } else {
+                    alert('操作失败: ' + (result.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        }
+        
+        // 删除用户
+        async function deleteUser(userId, username) {
+            if (!confirm(`确定要删除用户 "${username}" 吗？此操作不可撤销。`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.status === 200 && result.success) {
+                    alert('用户删除成功');
+                    loadUserList();
+                    loadUserStats();
+                } else {
+                    alert('删除失败: ' + (result.message || '未知错误'));
+                }
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+        
+        // 保存认证设置
+        async function saveAuthSettings() {
+            if (!currentSessionToken) {
+                alert('请先登录');
+                return;
+            }
+            
+            const settings = {
+                session_timeout: parseInt(document.getElementById('session-timeout').value),
+                max_login_attempts: parseInt(document.getElementById('max-login-attempts').value),
+                password_min_length: parseInt(document.getElementById('password-min-length').value)
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/settings/auth`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(settings)
+                });
+                
+                if (response.status === 200) {
+                    alert('认证设置已保存');
+                } else {
+                    alert('保存失败');
+                }
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        }
+        
+        // 保存安全设置
+        async function saveSecuritySettings() {
+            if (!currentSessionToken) {
+                alert('请先登录');
+                return;
+            }
+            
+            const settings = {
+                rate_limit_enabled: document.getElementById('rate-limit-enabled').value === 'true',
+                requests_per_minute: parseInt(document.getElementById('requests-per-minute').value),
+                ip_whitelist: document.getElementById('ip-whitelist').value.split('\n').filter(ip => ip.trim())
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/security/settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentSessionToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(settings)
+                });
+                
+                if (response.status === 200) {
+                    alert('安全设置已保存');
+                } else {
+                    alert('保存失败');
+                }
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        }
+        
+        // 工具函数
+        function showAlert(element, message, type) {
+            element.textContent = message;
+            element.className = `alert alert-${type}`;
+            element.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 3000);
+        }
+        
+        function isValidEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+        
+        // 监听回车键
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                if (document.getElementById('login-modal').style.display === 'flex') {
+                    performLogin();
+                } else if (document.getElementById('register-modal').style.display === 'flex') {
+                    performRegister();
+                } else if (document.getElementById('create-user-modal').style.display === 'flex') {
+                    performCreateUser();
+                }
+            }
+            
+            if (event.key === 'Escape') {
+                if (document.getElementById('login-modal').style.display === 'flex') {
+                    hideLoginModal();
+                } else if (document.getElementById('register-modal').style.display === 'flex') {
+                    hideRegisterModal();
+                } else if (document.getElementById('create-user-modal').style.display === 'flex') {
+                    hideCreateUserModal();
+                }
+            }
+        });
+        
+        // 点击模态框外部关闭
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    if (this.id === 'login-modal') {
+                        hideLoginModal();
+                    } else if (this.id === 'register-modal') {
+                        hideRegisterModal();
+                    } else if (this.id === 'create-user-modal') {
+                        hideCreateUserModal();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

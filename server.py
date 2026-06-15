@@ -44,6 +44,8 @@ from app.model_manager import ModelFileManager
 from app.custom_node_manager import CustomNodeManager
 from app.subgraph_manager import SubgraphManager
 from app.node_replace_manager import NodeReplaceManager
+from app.user_auth import init_user_auth_system
+from app.database.db import create_session
 from typing import Optional, Union
 from api_server.routes.internal.internal_routes import InternalRoutes
 from protocol import BinaryEventTypes
@@ -210,6 +212,17 @@ class PromptServer():
         self.subgraph_manager = SubgraphManager()
         self.node_replace_manager = NodeReplaceManager()
         self.internal_routes = InternalRoutes(self)
+        
+        # 初始化用户认证系统
+        self.user_auth_manager = None
+        self.template_manager = None
+        self.auth_routes = None
+        if create_session:
+            try:
+                self.user_auth_manager, self.template_manager, self.auth_routes = init_user_auth_system(create_session)
+            except Exception as e:
+                logging.warning(f"Failed to initialize user auth system: {e}")
+                logging.warning("User authentication and template management will not be available")
         self.supports = ["custom_nodes_from_web"]
         self.prompt_queue = execution.PromptQueue(self)
         self.loop = loop
@@ -1060,6 +1073,10 @@ class PromptServer():
         self.subgraph_manager.add_routes(self.routes, nodes.LOADED_MODULE_DIRS.items())
         self.node_replace_manager.add_routes(self.routes)
         self.app.add_subapp('/internal', self.internal_routes.get_app())
+        
+        # 添加用户认证路由
+        if self.auth_routes:
+            self.auth_routes.add_routes(self.routes)
 
         # Prefix every route with /api for easier matching for delegation.
         # This is very useful for frontend dev server, which need to forward

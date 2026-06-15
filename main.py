@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
 
 def handle_comfyui_manager_unavailable():
-    manager_req_path = os.path.join(os.path.dirname(os.path.abspath(folder_paths.__file__)), "manager_requirements.txt")
+    manager_req_path = os.path.join(os.path.dirname(os.path.abspath(folder_paths.__file__)), "utils", "manager_requirements.txt")
     uv_available = shutil.which("uv") is not None
 
     pip_cmd = f"{sys.executable} -m pip install -r {manager_req_path}"
@@ -102,7 +102,7 @@ if args.enable_manager:
 
 def apply_custom_paths():
     # extra model paths
-    extra_model_paths_config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "extra_model_paths.yaml")
+    extra_model_paths_config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config", "extra_model_paths.yaml")
     if os.path.isfile(extra_model_paths_config_path):
         utils.extra_config.load_extra_path_config(extra_model_paths_config_path)
 

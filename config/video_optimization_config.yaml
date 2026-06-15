@@ -1,0 +1,196 @@
+# ComfyUI 视频生成优化配置
+# 针对 AMD Ryzen 9 7950X + RTX 4070 Ti SUPER 16GB 优化
+# 目标：5秒视频生成时间从10分钟优化到1-2分钟
+
+# ============================================
+# 视频生成专用优化
+# ============================================
+
+video_generation:
+  # 帧率设置
+  fps: 24  # 标准视频帧率
+  
+  # 分辨率设置
+  resolution:
+    width: 512   # 视频宽度（降低分辨率可大幅提升速度）
+    height: 512  # 视频高度
+  
+  # 关键帧间隔
+  keyframe_interval: 12  # 每12帧一个关键帧
+  
+  # 编码设置
+  encoding:
+    codec: "h264_nvenc"  # 使用NVIDIA硬件编码
+    preset: "fast"       # 编码预设：fast, medium, slow
+    crf: 23              # 质量参数（18-28，越低质量越好）
+    profile: "high"      # H.264配置文件
+    
+  # 内存优化
+  memory:
+    frame_cache_size: 10     # 缓存帧数
+    use_gpu_encoding: true   # 使用GPU编码
+    batch_frames: 4          # 批量处理帧数
+    
+  # 性能优化
+  performance:
+    use_half_precision: true      # 使用半精度浮点
+    enable_cuda_graphs: true      # 启用CUDA图优化
+    enable_tensor_cores: true     # 启用Tensor Core
+    max_concurrent_frames: 2      # 最大并发帧数
+    
+  # 模型优化
+  model:
+    use_xformers: true           # 使用xformers优化注意力
+    enable_attention_slicing: true  # 启用注意力切片
+    attention_slice_size: 256    # 注意力切片大小
+    enable_vae_slicing: true     # 启用VAE切片
+    vae_slice_size: 256          # VAE切片大小
+    
+  # 工作流优化
+  workflow:
+    enable_frame_interpolation: false  # 禁用帧插值（需要时再开启）
+    use_temporal_consistency: true    # 启用时间一致性
+    cache_latents: true               # 缓存潜在表示
+    
+# ============================================
+# GPU显存优化（视频生成专用）
+# ============================================
+
+gpu_video_optimization:
+  # 显存分配策略
+  memory_allocation: "aggressive"  # aggressive | balanced | conservative
+  
+  # 视频生成专用显存配置
+  video_memory:
+    max_vram_usage: 0.85  # 最大显存使用率（85%）
+    reserved_for_system: 2048  # 为系统保留的显存（MB）
+    
+  # 批处理优化
+  batching:
+    enable_dynamic_batching: true
+    max_batch_size: 4           # 最大批处理大小
+    adaptive_batch_size: true   # 自适应批处理大小
+    
+  # 流水线优化
+  pipeline:
+    enable_pipeline_parallel: true  # 启用流水线并行
+    pipeline_stages: 2              # 流水线阶段数
+    
+# ============================================
+# CPU优化（视频生成专用）
+# ============================================
+
+cpu_video_optimization:
+  # 线程配置
+  num_threads: 24  # 使用24个线程（16核32线程的75%）
+  
+  # 线程亲和性
+  enable_affinity: true
+  affinity_mask: "0-23"  # 绑定到前24个逻辑核心
+  
+  # 内存分配器
+  memory_allocator: "jemalloc"  # jemalloc | tcmalloc | system
+  
+  # 大页面支持
+  enable_huge_pages: true
+  huge_page_size: "2MB"
+  
+# ============================================
+# 模型加载优化
+# ============================================
+
+model_loading_video:
+  # 预加载视频生成相关模型
+  preload_models:
+    - "checkpoints/*video*.safetensors"
+    - "checkpoints/*video*.ckpt"
+    - "checkpoints/*temporal*.safetensors"
+    - "vae/*video*.safetensors"
+    
+  # 模型缓存
+  cache_enabled: true
+  cache_size_mb: 8192  # 8GB缓存
+  
+  # 懒加载配置
+  lazy_loading: true
+  lazy_load_threshold_mb: 1024  # 1GB以上使用懒加载
+  
+  # 内存映射
+  use_mmap: true
+  mmap_prefetch: true
+  
+# ============================================
+# 编码器优化
+# ============================================
+
+encoder_optimization:
+  # 硬件编码器
+  hardware_encoder: "nvenc"  # nvenc | qsv | vaapi
+  
+  # NVIDIA NVENC设置
+  nvenc:
+    preset: "p4"           # 性能预设：p1最快，p7最慢质量最好
+    tuning: "hq"           # 调优：hq, ll, ll_hq, lossless
+    rc: "cbr"              # 码率控制：cbr, vbr, cqp
+    bitrate: "5000K"       # 目标码率
+    
+  # 质量与速度平衡
+  quality_speed_tradeoff: "balanced"  # fast | balanced | quality
+  
+# ============================================
+# 实时监控和调优
+# ============================================
+
+monitoring:
+  # 性能监控
+  enable_performance_monitoring: true
+  monitor_interval: 1  # 监控间隔（秒）
+  
+  # 资源使用告警
+  alerts:
+    gpu_usage_threshold: 90    # GPU使用率告警阈值（%）
+    vram_usage_threshold: 85   # 显存使用率告警阈值（%）
+    cpu_usage_threshold: 80    # CPU使用率告警阈值（%）
+    
+  # 自动调优
+  auto_tuning:
+    enable: true
+    tuning_interval: 30  # 调优间隔（秒）
+    
+# ============================================
+# 故障恢复和降级
+# ============================================
+
+fallback:
+  # 内存不足时的降级策略
+  out_of_memory:
+    enable_auto_downgrade: true
+    downgrade_steps:
+      - reduce_batch_size: 2
+      - reduce_resolution: 0.75
+      - disable_xformers: false
+      - enable_attention_slicing: true
+      - enable_vae_slicing: true
+      
+  # 性能降级
+  performance_degradation:
+    enable_auto_adjust: true
+    adjustment_threshold: 30  # 帧生成时间超过30秒时调整
+    
+# ============================================
+# 日志和调试
+# ============================================
+
+logging:
+  # 日志级别
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  
+  # 视频生成专用日志
+  video_logging:
+    enable_frame_timing: true
+    enable_memory_logging: true
+    enable_perf_counter: true
+    
+  # 输出文件
+  log_file: "logs/video_generation.log"
+  perf_file: "logs/video_performance.csv"

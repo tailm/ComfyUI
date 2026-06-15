@@ -1,0 +1,416 @@
+# ComfyUI 模型加载和视频生成优化配置
+# 针对 AMD Ryzen 9 7950X + RTX 4070 Ti SUPER 16GB 优化
+# 特别优化视频生成性能
+
+# ============================================
+# 模型缓存配置
+# ============================================
+
+model_cache:
+  # 启用模型缓存
+  enabled: true
+  
+  # 缓存大小 (MB) - 根据62GB内存设置
+  # 建议设置为系统内存的5-10%
+  cache_size_mb: 8192  # 8GB缓存（视频生成需要更多缓存）
+  
+  # 缓存目录
+  cache_dir: "models/cache"
+  
+  # 预加载常用模型
+  preload_models: true
+  
+  # 预加载模型列表（视频生成相关）
+  preload_list:
+    - "checkpoints/*video*.safetensors"
+    - "checkpoints/*video*.ckpt"
+    - "checkpoints/*temporal*.safetensors"
+    - "checkpoints/*.safetensors"  # 所有检查点
+    - "loras/*.safetensors"
+    - "vae/*.safetensors"
+    - "embeddings/*.pt"
+    - "embeddings/*.bin"
+
+# ============================================
+# 模型加载优化
+# ============================================
+
+model_loading:
+  # 启用模型分片加载 (对于大模型)
+  enable_sharding: true
+  
+  # 分片大小 (MB) - 视频生成需要更小的分片
+  shard_size_mb: 512  # 512MB分片
+  
+  # 并行加载线程数
+  # 根据16核CPU设置，使用12个线程进行并行加载
+  parallel_load_threads: 12
+  
+  # 启用懒加载
+  lazy_loading: true
+  
+  # 懒加载阈值 (MB) - 大于此值的模型使用懒加载
+  lazy_load_threshold_mb: 1024  # 1GB
+  
+  # 启用内存映射文件
+  use_mmap: true
+  
+  # 预分配缓冲区大小 (MB)
+  prealloc_buffer_mb: 1024  # 1GB缓冲区
+
+# ============================================
+# GPU显存优化（视频生成专用）
+# ============================================
+
+gpu_optimization:
+  # 显存分配策略
+  memory_allocation: "aggressive"  # aggressive | balanced | memory_saving
+  
+  # FP16精度推理
+  use_fp16: true
+  
+  # 启用TF32 (如果GPU支持)
+  enable_tf32: true
+  
+  # 启用CUDA图优化
+  enable_cuda_graphs: true
+  
+  # 最大并发推理数（视频生成需要更多并发）
+  max_concurrent_inferences: 4
+  
+  # 模型卸载策略
+  model_offload: "smart"  # smart | aggressive | disabled
+  
+  # 智能卸载阈值 (MB) - 当显存低于此值时开始卸载
+  offload_threshold_mb: 2048  # 2GB
+  
+  # 保留显存 (MB) - 为视频编码保留更多显存
+  reserve_memory_mb: 2048  # 2GB
+  
+  # 视频生成专用优化
+  video_specific:
+    enable_frame_batching: true
+    batch_size: 4
+    enable_tensor_cores: true
+    enable_mixed_precision: true
+    cudnn_benchmark: true
+
+# ============================================
+# CPU优化（视频生成专用）
+# ============================================
+
+cpu_optimization:
+  # CPU线程配置
+  # AMD Ryzen 9 7950X: 16核心/32线程
+  # 视频生成使用24个线程
+  num_threads: 24
+  
+  # 线程亲和性
+  enable_affinity: true
+  
+  # 线程池大小
+  thread_pool_size: 24
+  
+  # 启用NUMA优化 (如果系统支持)
+  enable_numa: true
+  
+  # 大页面支持
+  enable_huge_pages: true
+  
+  # 内存分配器
+  memory_allocator: "jemalloc"  # jemalloc | tcmalloc | system
+
+# ============================================
+# 推理优化（视频生成）
+# ============================================
+
+inference_optimization:
+  # 批处理大小（降低以减少显存使用）
+  # RTX 4070 Ti SUPER 16GB，为视频生成调整
+  batch_size: 2
+  
+  # 启用动态批处理
+  dynamic_batching: true
+  
+  # 最大批处理大小
+  max_batch_size: 4
+  
+  # 启用KV缓存（视频生成特别重要）
+  enable_kv_cache: true
+  
+  # KV缓存大小
+  kv_cache_size_mb: 1024  # 1GB
+  
+  # 启用注意力优化
+  enable_attention_optimization: true
+  
+  # 使用Flash Attention (如果支持)
+  use_flash_attention: true
+  
+  # 视频生成专用优化
+  video_inference:
+    enable_temporal_attention: true
+    frame_cache_size: 16
+    enable_inter_frame_optimization: true
+    use_sequential_sampling: false  # 并行采样
+
+# ============================================
+# 视频生成优化
+# ============================================
+
+video_generation:
+  # 帧率设置
+  fps: 24  # 标准视频帧率
+  
+  # 分辨率设置（可调整）
+  max_width: 1024
+  max_height: 1024
+  default_width: 512   # 默认宽度（可提高速度）
+  default_height: 512  # 默认高度
+  
+  # 关键帧间隔
+  keyframe_interval: 12  # 每12帧一个关键帧
+  
+  # 编码设置
+  encoding:
+    codec: "h264_nvenc"  # 使用NVIDIA硬件编码
+    preset: "fast"       # 编码预设：p1最快，p7最慢质量最好
+    crf: 23              # 质量参数（18-28，越低质量越好）
+    profile: "high"      # H.264配置文件
+    bitrate: "5000K"     # 目标码率
+    
+  # 内存优化
+  memory:
+    frame_cache_size: 8      # 减少缓存帧数
+    use_gpu_encoding: true   # 使用GPU编码
+    batch_frames: 2          # 减少批量处理帧数
+    enable_frame_reuse: true # 启用帧重用
+    
+  # 性能优化
+  performance:
+    use_half_precision: true      # 使用半精度浮点
+    enable_cuda_graphs: true      # 启用CUDA图优化
+    enable_tensor_cores: true     # 启用Tensor Core
+    max_concurrent_frames: 2      # 减少最大并发帧数
+    enable_pipeline_parallel: true # 启用流水线并行
+    
+  # 模型优化
+  model:
+    use_xformers: true           # 使用xformers优化注意力
+    enable_attention_slicing: true  # 启用注意力切片
+    attention_slice_size: 128    # 注意力切片大小（更小更快）
+    enable_vae_slicing: true     # 启用VAE切片
+    vae_slice_size: 128          # VAE切片大小
+    enable_model_caching: true   # 启用模型缓存
+    
+  # 工作流优化
+  workflow:
+    enable_frame_interpolation: false  # 禁用帧插值（需要时再开启）
+    use_temporal_consistency: true    # 启用时间一致性
+    cache_latents: true               # 缓存潜在表示
+    enable_progressive_rendering: true # 启用渐进式渲染
+    
+  # 显存管理优化（防止OOM）
+  memory_management:
+    # 自动显存清理
+    enable_auto_memory_cleanup: true
+    
+    # 清理阈值（GB）
+    cleanup_threshold_gb: 12.0  # 当显存使用超过12GB时清理
+    
+    # 清理间隔（秒）
+    cleanup_interval_seconds: 30
+    
+    # 每次生成后清理
+    cleanup_after_generation: true
+    
+    # 清理策略
+    cleanup_strategy: "aggressive"  # aggressive | moderate | conservative
+    
+    # 清理选项
+    cleanup_options:
+      empty_cache: true            # 清空PyTorch缓存
+      garbage_collect: true        # 执行Python垃圾回收
+      reset_peak_stats: true       # 重置峰值统计
+      sync_device: true            # 同步设备
+
+# ============================================
+# 工作流优化
+# ============================================
+
+workflow_optimization:
+  # 启用工作流缓存
+  enable_workflow_cache: true
+  
+  # 工作流缓存大小
+  workflow_cache_size: 100  # 保存最近100个工作流
+  
+  # 启用节点缓存
+  enable_node_cache: true
+  
+  # 节点缓存大小
+  node_cache_size: 2000
+  
+  # 启用并行节点执行
+  enable_parallel_execution: true
+  
+  # 最大并行节点数
+  max_parallel_nodes: 8
+  
+  # 启用依赖分析
+  enable_dependency_analysis: true
+  
+  # 视频工作流优化
+  video_workflow:
+    enable_frame_parallelism: true
+    max_frame_workers: 4
+    enable_memory_pooling: true
+    pool_size_mb: 4096  # 4GB内存池
+
+# ============================================
+# 监控和日志
+# ============================================
+
+monitoring:
+  # 启用性能监控
+  enable_performance_monitoring: true
+  
+  # 监控间隔 (秒)
+  monitor_interval: 2  # 更频繁的监控
+  
+  # 记录GPU使用情况
+  log_gpu_usage: true
+  
+  # 记录内存使用情况
+  log_memory_usage: true
+  
+  # 记录推理时间
+  log_inference_time: true
+  
+  # 视频生成专用监控
+  video_monitoring:
+    enable_frame_timing: true
+    enable_encoding_stats: true
+    enable_memory_tracking: true
+    
+  # 性能日志文件
+  performance_log: "logs/video_performance.log"
+  
+  # 启用性能分析
+  enable_profiling: false  # 生产环境建议关闭
+  
+  # 分析输出目录
+  profile_output_dir: "profiles/video"
+
+# ============================================
+# 高级优化
+# ============================================
+
+advanced_optimization:
+  # 启用JIT编译
+  enable_jit: true
+  
+  # JIT编译模式
+  jit_mode: "performance"  # performance | memory
+  
+  # 启用算子融合
+  enable_operator_fusion: true
+  
+  # 启用常量折叠
+  enable_constant_folding: true
+  
+  # 启用内存共享
+  enable_memory_sharing: true
+  
+  # 视频生成专用高级优化
+  video_advanced:
+    enable_frame_compression: true
+    compression_ratio: 0.8
+    enable_adaptive_quality: true
+    min_quality: 0.7
+    max_quality: 0.95
+
+# ============================================
+# 故障排除和降级策略
+# ============================================
+
+troubleshooting:
+  # 内存不足时的回退策略
+  out_of_memory_fallback:
+    # 启用自动降级
+    enable_auto_downgrade: true
+    
+    # 降级顺序
+    downgrade_order:
+      - "reduce_batch_size"
+      - "reduce_resolution"
+      - "enable_attention_slicing"
+      - "enable_vae_slicing"
+      - "disable_xformers"
+      - "switch_to_lowvram"
+    
+    # 最小批处理大小
+    min_batch_size: 1
+    
+    # 最小图像尺寸
+    min_image_width: 256
+    min_image_height: 256
+  
+  # 性能监控告警
+  performance_alerts:
+    # GPU使用率告警阈值
+    gpu_usage_threshold: 95  # 百分比
+    
+    # 内存使用率告警阈值
+    memory_usage_threshold: 90  # 百分比
+    
+    # 推理时间告警阈值 (毫秒)
+    inference_time_threshold: 30000  # 30秒
+    
+    # 视频生成时间告警阈值
+    video_generation_threshold: 120000  # 2分钟（5秒视频）
+    
+    # 启用自动优化
+    enable_auto_optimization: true
+
+# ============================================
+# 环境特定配置
+# ============================================
+
+environment:
+  # 开发环境
+  development:
+    log_level: "DEBUG"
+    enable_profiling: true
+    enable_debug_tools: true
+    
+  # 生产环境（视频生成）
+  production:
+    log_level: "INFO"
+    enable_profiling: false
+    enable_debug_tools: false
+    video_quality: "balanced"  # balanced | speed | quality
+    
+  # 测试环境
+  testing:
+    log_level: "WARNING"
+    enable_profiling: false
+    enable_debug_tools: true
+
+# ============================================
+# 配置应用说明
+# ============================================
+
+# 应用此配置的方法:
+# 1. 将文件保存为 extra_model_paths.yaml 或 config.yaml
+# 2. 在启动ComfyUI时指定配置文件
+# 3. 或通过环境变量加载配置
+
+# 示例启动命令:
+# python main.py --config model_optimization_video.yaml --highvram --force-fp16 --use-pytorch-cross-attention
+
+# 视频生成专用启动命令:
+# python main.py --listen 0.0.0.0 --port 8188 --highvram --force-fp16 --use-pytorch-cross-attention --disable-smart-memory
+
+# 注意: 某些选项可能需要ComfyUI支持或特定插件
+# 请根据实际需求调整参数
