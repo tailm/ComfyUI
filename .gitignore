@@ -1,26 +1,66 @@
+# Log files
+$LOG_FILE
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.tmp
+
+# Python cache
 __pycache__/
 *.py[cod]
-/output/
-/input/
-!/input/example.png
-/models/
-/temp/
-/custom_nodes/
-!custom_nodes/example_node.py.example
-extra_model_paths.yaml
-/.vs
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv
+
+# IDE files
 .vscode/
 .idea/
-venv*/
-.venv/
-/web/extensions/*
-!/web/extensions/logging.js.example
-!/web/extensions/core/
-/tests-ui/data/object_info.json
-/user/
-*.log
-web_custom_versions/
+*.swp
+*.swo
+*~
+
+# OS files
 .DS_Store
-filtered-openapi.yaml
-uv.lock
-.comfy_environment
+Thumbs.db
+
+# ComfyUI specific
+output/
+temp/
+input/
+models/  # 大模型文件，建议单独管理
+custom_nodes/  # 自定义节点，建议单独管理
+
+# 临时文件
+*.tmp
+temp_*
