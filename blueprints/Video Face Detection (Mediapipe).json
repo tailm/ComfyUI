@@ -607,7 +607,7 @@
               "models": [
                 {
                   "name": "mediapipe_face_fp32.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/mediapipe/resolve/main/detection/mediapipe_face_fp32.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/mediapipe/resolve/main/detection/mediapipe_face_fp32.safetensors",
                   "directory": "detection"
                 }
               ]

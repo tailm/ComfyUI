@@ -660,7 +660,7 @@
               "models": [
                 {
                   "name": "qwen3.5_2b_bf16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/Qwen3.5/resolve/main/text_encoders/qwen3.5_2b_bf16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/Qwen3.5/resolve/main/text_encoders/qwen3.5_2b_bf16.safetensors",
                   "directory": "text_encoders"
                 }
               ],
@@ -1581,7 +1581,7 @@
               "models": [
                 {
                   "name": "stable_audio_3_medium.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/stable-audio-3/resolve/main/checkpoints/stable_audio_3_medium.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/stable-audio-3/resolve/main/checkpoints/stable_audio_3_medium.safetensors",
                   "directory": "checkpoints"
                 }
               ],
@@ -1659,7 +1659,7 @@
               "models": [
                 {
                   "name": "t5gemma_b_b_ul2.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/stable-audio-3/resolve/main/text_encoders/t5gemma_b_b_ul2.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/stable-audio-3/resolve/main/text_encoders/t5gemma_b_b_ul2.safetensors",
                   "directory": "text_encoders"
                 }
               ],

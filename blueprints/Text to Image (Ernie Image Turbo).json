@@ -456,7 +456,7 @@
               "models": [
                 {
                   "name": "ernie-image-turbo.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/diffusion_models/ernie-image-turbo.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/ERNIE-Image/resolve/main/diffusion_models/ernie-image-turbo.safetensors",
                   "directory": "diffusion_models"
                 }
               ],
@@ -793,7 +793,7 @@
               "models": [
                 {
                   "name": "ministral-3-3b.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ministral-3-3b.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ministral-3-3b.safetensors",
                   "directory": "text_encoders"
                 }
               ],
@@ -858,7 +858,7 @@
               "models": [
                 {
                   "name": "flux2-vae.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/vae/flux2-vae.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/ERNIE-Image/resolve/main/vae/flux2-vae.safetensors",
                   "directory": "vae"
                 }
               ],
@@ -1433,7 +1433,7 @@
               "models": [
                 {
                   "name": "ernie-image-prompt-enhancer.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ernie-image-prompt-enhancer.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ernie-image-prompt-enhancer.safetensors",
                   "directory": "text_encoders"
                 }
               ],

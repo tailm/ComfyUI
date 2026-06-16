@@ -852,7 +852,7 @@
               "models": [
                 {
                   "name": "sdpose_wholebody_fp16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/SDPose/resolve/main/checkpoints/sdpose_wholebody_fp16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/SDPose/resolve/main/checkpoints/sdpose_wholebody_fp16.safetensors",
                   "directory": "checkpoints"
                 }
               ],
@@ -919,7 +919,7 @@
               "models": [
                 {
                   "name": "rt_detr_v4-x-hgnet_fp16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/SDPose/resolve/main/diffusion_models/rt_detr_v4-x-hgnet_fp16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/SDPose/resolve/main/diffusion_models/rt_detr_v4-x-hgnet_fp16.safetensors",
                   "directory": "diffusion_models"
                 }
               ],

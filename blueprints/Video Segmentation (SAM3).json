@@ -583,7 +583,7 @@
               "models": [
                 {
                   "name": "sam3.1_multiplex_fp16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
                   "directory": "checkpoints"
                 }
               ]

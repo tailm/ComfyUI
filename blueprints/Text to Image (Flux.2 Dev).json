@@ -566,7 +566,7 @@
               "models": [
                 {
                   "name": "full_encoder_small_decoder.safetensors",
-                  "url": "https://huggingface.co/black-forest-labs/FLUX.2-small-decoder/resolve/main/full_encoder_small_decoder.safetensors",
+                  "url": "https://hf-mirror.com/black-forest-labs/FLUX.2-small-decoder/resolve/main/full_encoder_small_decoder.safetensors",
                   "directory": "vae"
                 }
               ]
@@ -786,7 +786,7 @@
               "models": [
                 {
                   "name": "mistral_3_small_flux2_bf16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/text_encoders/mistral_3_small_flux2_bf16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/flux2-dev/resolve/main/split_files/text_encoders/mistral_3_small_flux2_bf16.safetensors",
                   "directory": "text_encoders"
                 }
               ]
@@ -1141,7 +1141,7 @@
               "models": [
                 {
                   "name": "Flux_2-Turbo-LoRA_comfyui.safetensors",
-                  "url": "https://huggingface.co/ByteZSzn/Flux.2-Turbo-ComfyUI/resolve/main/Flux_2-Turbo-LoRA_comfyui.safetensors",
+                  "url": "https://hf-mirror.com/ByteZSzn/Flux.2-Turbo-ComfyUI/resolve/main/Flux_2-Turbo-LoRA_comfyui.safetensors",
                   "directory": "loras"
                 }
               ]
@@ -1528,7 +1528,7 @@
               "models": [
                 {
                   "name": "flux2_dev_fp8mixed.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/diffusion_models/flux2_dev_fp8mixed.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/flux2-dev/resolve/main/split_files/diffusion_models/flux2_dev_fp8mixed.safetensors",
                   "directory": "diffusion_models"
                 }
               ]

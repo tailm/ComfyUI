@@ -332,7 +332,7 @@
               "models": [
                 {
                   "name": "RealESRGAN_x4plus.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/Real-ESRGAN_repackaged/resolve/main/RealESRGAN_x4plus.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/Real-ESRGAN_repackaged/resolve/main/RealESRGAN_x4plus.safetensors",
                   "directory": "upscale_models"
                 }
               ]

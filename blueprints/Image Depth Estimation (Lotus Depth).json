@@ -236,7 +236,7 @@
               "models": [
                 {
                   "name": "lotus-depth-d-v1-1.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/lotus/resolve/main/lotus-depth-d-v1-1.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/lotus/resolve/main/lotus-depth-d-v1-1.safetensors",
                   "directory": "diffusion_models"
                 }
               ],
@@ -671,7 +671,7 @@
               "models": [
                 {
                   "name": "vae-ft-mse-840000-ema-pruned.safetensors",
-                  "url": "https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors",
+                  "url": "https://hf-mirror.com/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors",
                   "directory": "vae"
                 }
               ],

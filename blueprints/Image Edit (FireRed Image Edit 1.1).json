@@ -934,7 +934,7 @@
               "models": [
                 {
                   "name": "qwen_image_vae.safetensors",
-                  "url": "https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.0-ComfyUI/resolve/main/qwen_image_vae.safetensors",
+                  "url": "https://hf-mirror.com/FireRedTeam/FireRed-Image-Edit-1.0-ComfyUI/resolve/main/qwen_image_vae.safetensors",
                   "directory": "vae"
                 }
               ],
@@ -1016,7 +1016,7 @@
               "models": [
                 {
                   "name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/HunyuanVideo_1.5_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
                   "directory": "text_encoders"
                 }
               ],
@@ -1095,7 +1095,7 @@
               "models": [
                 {
                   "name": "FireRed-Image-Edit-1.0-Lightning-8steps-v1.0.safetensors",
-                  "url": "https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.0-ComfyUI/resolve/main/FireRed-Image-Edit-1.0-Lightning-8steps-v1.0.safetensors",
+                  "url": "https://hf-mirror.com/FireRedTeam/FireRed-Image-Edit-1.0-ComfyUI/resolve/main/FireRed-Image-Edit-1.0-Lightning-8steps-v1.0.safetensors",
                   "directory": "loras"
                 }
               ],
@@ -1169,7 +1169,7 @@
               "models": [
                 {
                   "name": "FireRed-Image-Edit-1.1-transformer.safetensors",
-                  "url": "https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1-ComfyUI/resolve/main/FireRed-Image-Edit-1.1-transformer.safetensors",
+                  "url": "https://hf-mirror.com/FireRedTeam/FireRed-Image-Edit-1.1-ComfyUI/resolve/main/FireRed-Image-Edit-1.1-transformer.safetensors",
                   "directory": "diffusion_models"
                 }
               ],

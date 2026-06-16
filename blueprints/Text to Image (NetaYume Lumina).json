@@ -532,7 +532,7 @@
               "models": [
                 {
                   "name": "NetaYumev35_pretrained_all_in_one.safetensors",
-                  "url": "https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0/resolve/main/NetaYumev35_pretrained_all_in_one.safetensors",
+                  "url": "https://hf-mirror.com/duongve/NetaYume-Lumina-Image-2.0/resolve/main/NetaYumev35_pretrained_all_in_one.safetensors",
                   "directory": "checkpoints"
                 }
               ]

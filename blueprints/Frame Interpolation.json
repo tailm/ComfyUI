@@ -258,7 +258,7 @@
               "models": [
                 {
                   "name": "film_net_fp16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/frame_interpolation/resolve/main/frame_interpolation/film_net_fp16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/frame_interpolation/resolve/main/frame_interpolation/film_net_fp16.safetensors",
                   "directory": "frame_interpolation"
                 }
               ]

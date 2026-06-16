@@ -233,7 +233,7 @@
               "models": [
                 {
                   "name": "birefnet.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors",
                   "directory": "background_removal"
                 }
               ]

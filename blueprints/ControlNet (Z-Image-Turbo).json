@@ -347,7 +347,7 @@
               "models": [
                 {
                   "name": "qwen_3_4b.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors",
                   "directory": "text_encoders"
                 }
               ]
@@ -421,7 +421,7 @@
               "models": [
                 {
                   "name": "z_image_turbo_bf16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
                   "directory": "diffusion_models"
                 }
               ]
@@ -486,7 +486,7 @@
               "models": [
                 {
                   "name": "ae.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
                   "directory": "vae"
                 }
               ]
@@ -549,7 +549,7 @@
               "models": [
                 {
                   "name": "Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
-                  "url": "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
+                  "url": "https://hf-mirror.com/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
                   "directory": "model_patches"
                 }
               ]

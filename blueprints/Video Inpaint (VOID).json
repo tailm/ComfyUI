@@ -615,7 +615,7 @@
               "models": [
                 {
                   "name": "t5xxl_fp16.safetensors",
-                  "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors",
+                  "url": "https://hf-mirror.com/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors",
                   "directory": "text_encoders"
                 }
               ],
@@ -678,7 +678,7 @@
               "models": [
                 {
                   "name": "cogvideox_vae.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/void-model/resolve/main/vae/cogvideox_vae.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/void-model/resolve/main/vae/cogvideox_vae.safetensors",
                   "directory": "vae"
                 }
               ],
@@ -1274,7 +1274,7 @@
               "models": [
                 {
                   "name": "raft_large_C_T_SKHT_V2-ff5fadd5.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/void-model/resolve/main/optical_flow/raft_large_C_T_SKHT_V2-ff5fadd5.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/void-model/resolve/main/optical_flow/raft_large_C_T_SKHT_V2-ff5fadd5.safetensors",
                   "directory": "optical_flow"
                 }
               ],
@@ -1637,7 +1637,7 @@
               "models": [
                 {
                   "name": "void_pass2.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/void-model/resolve/main/diffusion_models/void_pass2.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/void-model/resolve/main/diffusion_models/void_pass2.safetensors",
                   "directory": "diffusion_models"
                 }
               ],
@@ -1706,7 +1706,7 @@
               "models": [
                 {
                   "name": "void_pass1.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/void-model/resolve/main/diffusion_models/void_pass1.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/void-model/resolve/main/diffusion_models/void_pass1.safetensors",
                   "directory": "diffusion_models"
                 }
               ],
@@ -4131,7 +4131,7 @@
               "models": [
                 {
                   "name": "sam3.1_multiplex_fp16.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
                   "directory": "checkpoints"
                 }
               ],

@@ -354,12 +354,12 @@
               "models": [
                 {
                   "name": "clip_l.safetensors",
-                  "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
+                  "url": "https://hf-mirror.com/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
                   "directory": "text_encoders"
                 },
                 {
                   "name": "t5xxl_fp16.safetensors",
-                  "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors",
+                  "url": "https://hf-mirror.com/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors",
                   "directory": "text_encoders"
                 }
               ]
@@ -476,7 +476,7 @@
               "models": [
                 {
                   "name": "ae.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/vae/ae.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/vae/ae.safetensors",
                   "directory": "vae"
                 }
               ]
@@ -541,7 +541,7 @@
               "models": [
                 {
                   "name": "flux1-fill-dev.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/flux1-dev/resolve/main/split_files/diffusion_models/flux1-fill-dev.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/flux1-dev/resolve/main/split_files/diffusion_models/flux1-fill-dev.safetensors",
                   "directory": "diffusion_models"
                 }
               ]

@@ -19,6 +19,15 @@ import comfy.model_management
 import comfy.model_prefetch
 import comfy_aimdo.model_vbar
 
+# 导入增强内存清理模块
+try:
+    from scripts.enhanced_memory_cleanup import cleanup_after_model_call, get_memory_status
+    ENHANCED_CLEANUP_AVAILABLE = True
+except ImportError:
+    ENHANCED_CLEANUP_AVAILABLE = False
+    import logging
+    logging.warning("增强内存清理模块不可用，将使用标准清理")
+
 from latent_preview import set_preview_method
 import nodes
 from comfy_execution.caching import (
@@ -654,6 +663,31 @@ async def execute(server, dynprompt, caches, current_item, extra_data, executed,
                 logging.debug(f"节点 {unique_id} ({class_type}) 执行后自动清理了 {cleaned} 个未使用模型")
         except Exception as e:
             logging.warning(f"模型间清理失败: {e}")
+    
+    # 增强的GPU内存实时清理（无论是否启用模型间清理都执行）
+    try:
+        if ENHANCED_CLEANUP_AVAILABLE:
+            # 执行实时GPU内存清理
+            cleanup_result = cleanup_after_model_call(f"{class_type}_{unique_id}")
+            
+            # 记录清理结果
+            freed_mb = cleanup_result.get("freed_mb", 0)
+            if freed_mb > 0:
+                logging.debug(f"节点 {unique_id} ({class_type}) 执行后释放了 {freed_mb:.1f}MB GPU内存")
+            
+            # 如果内存使用仍然很高，记录警告
+            current_usage = cleanup_result.get("current_usage_mb", 0)
+            if current_usage > 1024:  # 超过1GB
+                logging.warning(f"节点 {unique_id} ({class_type}) 执行后GPU内存使用仍然较高: {current_usage:.1f}MB")
+        else:
+            # 回退到标准清理
+            import gc
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+    except Exception as e:
+        logging.warning(f"GPU内存清理失败: {e}")
 
     return (ExecutionResult.SUCCESS, None, None)
 

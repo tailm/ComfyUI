@@ -116,6 +116,14 @@ export HF_HUB_DISABLE_TELEMETRY="1"
 export DO_NOT_TRACK="1"
 export DISABLE_TELEMETRY="1"
 
+# 国内镜像源配置
+export HF_ENDPOINT="https://hf-mirror.com"  # HuggingFace国内镜像
+export HF_HUB_ENABLE_HF_TRANSFER="1"        # 启用快速传输
+export HF_HUB_OFFLINE="0"                   # 在线模式
+export HF_HUB_DISABLE_PROGRESS_BARS="0"     # 显示进度条
+export HF_HUB_DISABLE_TELEMETRY="1"         # 禁用遥测（已设置，重复确保）
+export HF_HUB_VERBOSITY="warning"           # 日志级别
+
 # 减少TensorFlow日志
 export TF_CPP_MIN_LOG_LEVEL=2
 
@@ -188,6 +196,7 @@ show_config() {
     echo "  PYTORCH_CUDA_MEMORY_FRACTION: \${PYTORCH_CUDA_MEMORY_FRACTION}"
     echo "  OMP_NUM_THREADS: \${OMP_NUM_THREADS}"
     echo "  MKL_NUM_THREADS: \${MKL_NUM_THREADS}"
+    echo "  HF_ENDPOINT: \${HF_ENDPOINT} (国内镜像源)"
     echo ""
     echo "启动命令:"
     echo "  \$(get_start_command)"

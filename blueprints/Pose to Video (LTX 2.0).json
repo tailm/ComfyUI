@@ -591,7 +591,7 @@
               "models": [
                 {
                   "name": "ltx-2-spatial-upscaler-x2-1.0.safetensors",
-                  "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors",
+                  "url": "https://hf-mirror.com/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors",
                   "directory": "latent_upscale_models"
                 }
               ]
@@ -1336,7 +1336,7 @@
               "models": [
                 {
                   "name": "ltx-2-19b-distilled-lora-384.safetensors",
-                  "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-lora-384.safetensors",
+                  "url": "https://hf-mirror.com/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-lora-384.safetensors",
                   "directory": "loras"
                 }
               ]
@@ -1839,7 +1839,7 @@
               "models": [
                 {
                   "name": "ltx-2-19b-ic-lora-pose-control.safetensors",
-                  "url": "https://huggingface.co/Lightricks/LTX-2-19b-IC-LoRA-Pose-Control/resolve/main/ltx-2-19b-ic-lora-pose-control.safetensors",
+                  "url": "https://hf-mirror.com/Lightricks/LTX-2-19b-IC-LoRA-Pose-Control/resolve/main/ltx-2-19b-ic-lora-pose-control.safetensors",
                   "directory": "loras"
                 }
               ]
@@ -2619,7 +2619,7 @@
               "models": [
                 {
                   "name": "ltx-2-19b-dev-fp8.safetensors",
-                  "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors",
+                  "url": "https://hf-mirror.com/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors",
                   "directory": "checkpoints"
                 }
               ]
@@ -2701,12 +2701,12 @@
               "models": [
                 {
                   "name": "ltx-2-19b-dev-fp8.safetensors",
-                  "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors",
+                  "url": "https://hf-mirror.com/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors",
                   "directory": "checkpoints"
                 },
                 {
                   "name": "gemma_3_12B_it_fp4_mixed.safetensors",
-                  "url": "https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
+                  "url": "https://hf-mirror.com/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors",
                   "directory": "text_encoders"
                 }
               ]
@@ -2788,7 +2788,7 @@
               "models": [
                 {
                   "name": "ltx-2-19b-dev-fp8.safetensors",
-                  "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors",
+                  "url": "https://hf-mirror.com/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors",
                   "directory": "checkpoints"
                 }
               ]
