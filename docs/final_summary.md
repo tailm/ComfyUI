@@ -230,5 +230,5 @@ sqlite3 /home/gpu/ComfyUI/user/comfyui.db "SELECT * FROM users;"
 
 **部署完成时间**: 2026-06-09 07:08
 **系统版本**: 1.0.0
-**ComfyUI版本**: 0.23.0
+**ComfyUI版本**: 1.0.0
 **Python版本**: 3.13.13
