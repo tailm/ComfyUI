@@ -1,0 +1,3 @@
+# Main runtime dependencies for ComfyUI.
+# This file points to the canonical runtime dependency list maintained in utils/requirements.txt.
+-r utils/requirements.txt
