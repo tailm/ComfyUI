@@ -189,23 +189,6 @@ parser.add_argument("--verbose", default='INFO', const='DEBUG', nargs="?", choic
 parser.add_argument("--log-stdout", action="store_true", help="Send normal process output to stdout instead of stderr (default).")
 
 
-# The default built-in provider hosted under web/
-DEFAULT_VERSION_STRING = "comfyanonymous/ComfyUI@latest"
-
-parser.add_argument(
-    "--front-end-version",
-    type=str,
-    default=DEFAULT_VERSION_STRING,
-    help="""
-    Specifies the version of the frontend to be used. This command needs internet connectivity to query and
-    download available frontend implementations from GitHub releases.
-
-    The version string should be in the format of:
-    [repoOwner]/[repoName]@[version]
-    where version is one of: "latest" or a valid version number (e.g. "1.0.0")
-    """,
-)
-
 def is_valid_directory(path: str) -> str:
     """Validate if the given path is a directory, and check permissions."""
     if not os.path.exists(path):
@@ -215,20 +198,6 @@ def is_valid_directory(path: str) -> str:
     if not os.access(path, os.R_OK):
         raise argparse.ArgumentTypeError(f"You do not have read permissions for '{path}'.")
     return path
-
-parser.add_argument(
-    "--front-end-root",
-    type=is_valid_directory,
-    default=None,
-    help="The local filesystem path to the directory where the frontend is located. Overrides --front-end-version.",
-)
-
-parser.add_argument(
-    "--front-end-local",
-    action="store_true",
-    default=False,
-    help="Use the local web/ directory as the frontend source, without requiring comfyui-frontend-package.",
-)
 
 parser.add_argument("--user-directory", type=is_valid_directory, default=None, help="Set the ComfyUI user directory with an absolute path. Overrides --base-directory.")
 

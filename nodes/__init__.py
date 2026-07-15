@@ -1663,14 +1663,17 @@ class SaveImage:
         if extra_pnginfo and isinstance(extra_pnginfo, dict):
             user_id = extra_pnginfo.get("user_id", "0")
         
-        # Use user-specific output directory
-        self.output_dir = folder_paths.get_user_output_directory(user_id)
+        # Use user-specific directory based on type
+        if self.type == "temp":
+            self.output_dir = folder_paths.get_user_temp_directory(user_id)
+        else:
+            self.output_dir = folder_paths.get_user_output_directory(user_id)
         
         filename_prefix += self.prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, self.output_dir, images[0].shape[1], images[0].shape[0])
         results = list()
         for (batch_number, image) in enumerate(images):
-            i = 255. * image.cpu().numpy()
+            i = 255. * image.cpu().detach().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             metadata = None
             if not args.disable_metadata:

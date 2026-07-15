@@ -9,7 +9,6 @@ lerna-debug.log*
 
 #前端源代码
 ComfyUI_frontend
-web
 
 # Package manager lockfiles (allow users to use different package managers)
 bun.lock
@@ -27,13 +26,6 @@ node_modules
 dist
 dist-ssr
 *.local
-# Claude configuration
-.claude/*.local.json
-.claude/*.local.md
-.claude/*.local.txt
-.claude/worktrees
-CLAUDE.local.md
-
 # Editor directories and files
 .vscode/*
 *.code-workspace
@@ -52,6 +44,8 @@ CLAUDE.local.md
 components.d.ts
 
 # Ignore test data.
+tests
+tests-unit
 tests-ui/data/*
 tests-ui/ComfyUI_examples
 tests-ui/workflows/examples
@@ -102,6 +96,11 @@ vitest.config.*.timestamp*
 
 .amp
 
+# AI agent configs (runtime, not tracked)
+.codeartsdoer/
+.claude/
+.agents/
+
 # Python cache
 __pycache__/
 *.pyc
@@ -125,5 +124,3 @@ diagnostic_report.json
 validation_report.json
 fix_report_*.json
 
-# Agents temp
-.agents/

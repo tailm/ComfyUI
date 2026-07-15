@@ -28,7 +28,7 @@ class SaveImageWebsocket:
         pbar = comfy.utils.ProgressBar(images.shape[0])
         step = 0
         for image in images:
-            i = 255. * image.cpu().numpy()
+            i = 255. * image.cpu().detach().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             pbar.update_absolute(step, images.shape[0], ("PNG", img, None))
             step += 1

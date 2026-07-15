@@ -1,50 +1,46 @@
 #!/bin/bash
 
-# ComfyUI服务管理脚本
+# ComfyUI 服务管理脚本
+# 适配本地前端 + 多用户模式
 
 SERVICE_NAME="ComfyUI"
 PORT=8188
+LISTEN="0.0.0.0"
 LOG_FILE="/home/gpu/ComfyUI/comfyui.log"
 PID_FILE="/home/gpu/ComfyUI/data/comfyui.pid"
-VENV_PATH="/home/gpu/ComfyUI/.venv/bin/python"
+PYTHON_BIN="python"
 MAIN_SCRIPT="/home/gpu/ComfyUI/main.py"
+BASE_DIR="/home/gpu/ComfyUI"
+FRONTEND_DIR="/home/gpu/ComfyUI/ComfyUI_frontend"
+WEB_DIR="/home/gpu/ComfyUI/web"
+SYNC_SCRIPT="/home/gpu/ComfyUI/scripts/sync_frontend.py"
+
+# 启动参数
+START_ARGS="--listen $LISTEN --port $PORT --multi-user"
 
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# 函数：打印带颜色的消息
-print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+print_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+print_warning() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# 函数：检查服务状态
+# 检查服务状态
 check_status() {
     echo "=== $SERVICE_NAME 服务状态 ==="
     echo ""
-    
+
     # 检查进程
-    if pgrep -f "main.py --listen 0.0.0.0 --port $PORT" > /dev/null; then
-        PIDS=$(pgrep -f "main.py --listen 0.0.0.0 --port $PORT")
+    if pgrep -f "main.py.*--port $PORT" > /dev/null; then
+        PIDS=$(pgrep -f "main.py.*--port $PORT")
         print_success "服务正在运行"
         echo "进程ID: $PIDS"
-        
-        # 获取主进程信息
+
         MAIN_PID=$(echo "$PIDS" | head -1)
         if [ -n "$MAIN_PID" ]; then
             echo "启动命令: $(ps -p $MAIN_PID -o cmd=)"
@@ -55,19 +51,18 @@ check_status() {
     else
         print_warning "服务未运行"
     fi
-    
+
     echo ""
-    
+
     # 检查端口
-    if netstat -tln 2>/dev/null | grep ":$PORT" > /dev/null; then
+    if ss -tln 2>/dev/null | grep ":$PORT" > /dev/null; then
         print_success "端口 $PORT 正在监听"
-        netstat -tln 2>/dev/null | grep ":$PORT"
     else
         print_warning "端口 $PORT 未监听"
     fi
-    
+
     echo ""
-    
+
     # 检查HTTP服务
     HTTP_STATUS=$(timeout 5 curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT/ 2>/dev/null || echo "timeout")
     if [ "$HTTP_STATUS" = "200" ]; then
@@ -77,77 +72,76 @@ check_status() {
     else
         print_warning "HTTP服务异常 (状态码: $HTTP_STATUS)"
     fi
-    
+
     echo ""
-    
+
+    # 检查前端文件
+    if [ -f "$WEB_DIR/index.html" ]; then
+        print_success "前端文件存在: $WEB_DIR/index.html"
+    else
+        print_error "前端文件缺失: $WEB_DIR/index.html"
+        echo "  请执行: $0 rebuild"
+    fi
+
+    echo ""
+
     # 检查日志
     if [ -f "$LOG_FILE" ]; then
         LOG_SIZE=$(du -h "$LOG_FILE" | cut -f1)
         LOG_LINES=$(wc -l < "$LOG_FILE")
         print_info "日志文件: $LOG_FILE ($LOG_SIZE, $LOG_LINES 行)"
-        
-        # 显示错误和警告
-        ERROR_COUNT=$(grep -c "ERROR\|error" "$LOG_FILE" | tail -100)
-        WARNING_COUNT=$(grep -c "WARNING\|warning" "$LOG_FILE" | tail -100)
-        
+
+        ERROR_COUNT=$(grep -c "\[ERROR\]" "$LOG_FILE" 2>/dev/null || echo 0)
         if [ "$ERROR_COUNT" -gt 0 ]; then
-            print_warning "最近日志中有 $ERROR_COUNT 个错误"
+            print_warning "日志中有 $ERROR_COUNT 个错误"
         fi
-        
-        if [ "$WARNING_COUNT" -gt 0 ]; then
-            print_info "最近日志中有 $WARNING_COUNT 个警告"
-        fi
-        
-        # 显示最后3行日志
+
         echo "最近日志:"
         tail -3 "$LOG_FILE" | sed 's/^/  /'
     else
-        print_warning "日志文件不存在"
+        print_info "日志文件不存在"
     fi
-    
+
     echo ""
     echo "访问地址: http://localhost:$PORT"
-    echo "管理界面: http://localhost:$PORT/manager"
     echo "=== 状态检查完成 ==="
 }
 
-# 函数：启动服务
+# 启动服务
 start_service() {
     echo "=== 启动 $SERVICE_NAME 服务 ==="
-    
-    # 检查是否已运行
-    if pgrep -f "main.py --listen 0.0.0.0 --port $PORT" > /dev/null; then
+
+    if pgrep -f "main.py.*--port $PORT" > /dev/null; then
         print_warning "服务已在运行"
         check_status
         return 1
     fi
-    
-    # 检查虚拟环境
-    if [ ! -f "$VENV_PATH" ]; then
-        print_error "虚拟环境不存在: $VENV_PATH"
+
+    # 检查前端文件
+    if [ ! -f "$WEB_DIR/index.html" ]; then
+        print_error "前端文件缺失: $WEB_DIR/index.html"
+        echo "请先执行: $0 rebuild"
         return 1
     fi
-    
+
     # 检查主脚本
     if [ ! -f "$MAIN_SCRIPT" ]; then
         print_error "主脚本不存在: $MAIN_SCRIPT"
         return 1
     fi
-    
-    # 启动服务
-    print_info "正在启动服务..."
-    cd /home/gpu/ComfyUI
-    nohup $VENV_PATH $MAIN_SCRIPT --listen 0.0.0.0 --port $PORT --enable-manager > "$LOG_FILE" 2>&1 &
-    
-    # 保存PID
+
+    print_info "正在启动服务 (多用户模式, 本地前端)..."
+    cd "$BASE_DIR"
+    mkdir -p "$(dirname "$PID_FILE")"
+    nohup $PYTHON_BIN $MAIN_SCRIPT $START_ARGS > "$LOG_FILE" 2>&1 &
+
     SERVICE_PID=$!
     echo $SERVICE_PID > "$PID_FILE"
-    
+
     print_info "服务启动中 (PID: $SERVICE_PID)..."
-    
-    # 等待服务启动
+
     for i in {1..30}; do
-        if curl -s -o /dev/null http://localhost:$PORT/; then
+        if curl -s -o /dev/null http://localhost:$PORT/ 2>/dev/null; then
             print_success "服务启动成功!"
             check_status
             return 0
@@ -155,62 +149,47 @@ start_service() {
         sleep 1
         echo -n "."
     done
-    
+
     print_error "服务启动超时"
     return 1
 }
 
-# 函数：停止服务
+# 停止服务
 stop_service() {
     echo "=== 停止 $SERVICE_NAME 服务 ==="
-    
-    # 查找进程
-    PIDS=$(pgrep -f "main.py --listen 0.0.0.0 --port $PORT")
-    
+
+    PIDS=$(pgrep -f "main.py.*--port $PORT")
+
     if [ -z "$PIDS" ]; then
         print_warning "服务未运行"
         return 0
     fi
-    
+
     print_info "找到进程: $PIDS"
-    
-    # 优雅停止
+
     for PID in $PIDS; do
-        print_info "停止进程 $PID..."
         kill -TERM $PID 2>/dev/null
     done
-    
-    # 等待进程停止
+
     for i in {1..10}; do
-        if ! pgrep -f "main.py --listen 0.0.0.0 --port $PORT" > /dev/null; then
+        if ! pgrep -f "main.py.*--port $PORT" > /dev/null; then
             print_success "服务已停止"
-            
-            # 清理PID文件
-            if [ -f "$PID_FILE" ]; then
-                rm "$PID_FILE"
-            fi
-            
+            rm -f "$PID_FILE"
             return 0
         fi
         sleep 1
     done
-    
-    # 强制停止
-    print_warning "优雅停止失败，尝试强制停止..."
+
+    print_warning "优雅停止失败，强制停止..."
     for PID in $PIDS; do
         kill -9 $PID 2>/dev/null
     done
-    
+
     sleep 2
-    
-    if ! pgrep -f "main.py --listen 0.0.0.0 --port $PORT" > /dev/null; then
+
+    if ! pgrep -f "main.py.*--port $PORT" > /dev/null; then
         print_success "服务已强制停止"
-        
-        # 清理PID文件
-        if [ -f "$PID_FILE" ]; then
-            rm "$PID_FILE"
-        fi
-        
+        rm -f "$PID_FILE"
         return 0
     else
         print_error "无法停止服务"
@@ -218,10 +197,9 @@ stop_service() {
     fi
 }
 
-# 函数：重启服务
+# 重启服务
 restart_service() {
     echo "=== 重启 $SERVICE_NAME 服务 ==="
-    
     stop_service
     if [ $? -eq 0 ]; then
         sleep 2
@@ -233,40 +211,87 @@ restart_service() {
     fi
 }
 
-# 函数：查看日志
+# 构建前端并重启
+rebuild_service() {
+    echo "=== 构建前端并重启服务 ==="
+
+    # 检查前端目录
+    if [ ! -d "$FRONTEND_DIR" ]; then
+        print_error "前端源码目录不存在: $FRONTEND_DIR"
+        return 1
+    fi
+
+    # 停止服务
+    if pgrep -f "main.py.*--port $PORT" > /dev/null; then
+        print_info "停止当前服务..."
+        stop_service
+        sleep 2
+    fi
+
+    # 构建前端
+    print_info "构建前端..."
+    cd "$FRONTEND_DIR"
+    if [ ! -d "node_modules" ]; then
+        print_info "安装前端依赖..."
+        pnpm install
+        if [ $? -ne 0 ]; then
+            print_error "前端依赖安装失败"
+            return 1
+        fi
+    fi
+
+    pnpm build
+    if [ $? -ne 0 ]; then
+        print_error "前端构建失败"
+        return 1
+    fi
+    print_success "前端构建完成"
+
+    # 同步到 web 目录
+    print_info "同步前端到 web 目录..."
+    cd "$BASE_DIR"
+    $PYTHON_BIN "$SYNC_SCRIPT"
+    if [ $? -ne 0 ]; then
+        print_error "前端同步失败"
+        return 1
+    fi
+    print_success "前端同步完成"
+
+    # 启动服务
+    start_service
+    return $?
+}
+
+# 查看日志
 view_logs() {
     echo "=== 查看 $SERVICE_NAME 日志 ==="
-    
+
     if [ ! -f "$LOG_FILE" ]; then
         print_error "日志文件不存在: $LOG_FILE"
         return 1
     fi
-    
-    # 显示最后50行日志
+
     tail -50 "$LOG_FILE"
-    
+
     echo ""
     echo "日志文件: $LOG_FILE"
     echo "总行数: $(wc -l < "$LOG_FILE")"
     echo "文件大小: $(du -h "$LOG_FILE" | cut -f1)"
 }
 
-# 函数：清理日志
+# 清理日志
 clean_logs() {
     echo "=== 清理 $SERVICE_NAME 日志 ==="
-    
+
     if [ ! -f "$LOG_FILE" ]; then
         print_warning "日志文件不存在"
         return 0
     fi
-    
-    # 备份当前日志
+
     BACKUP_FILE="${LOG_FILE}.$(date +%Y%m%d_%H%M%S).bak"
     cp "$LOG_FILE" "$BACKUP_FILE"
-    
-    # 清空日志文件
     > "$LOG_FILE"
-    
+
     print_success "日志已清理并备份到: $BACKUP_FILE"
     echo "原日志大小: $(du -h "$BACKUP_FILE" | cut -f1)"
     echo "原日志行数: $(wc -l < "$BACKUP_FILE")"
@@ -284,6 +309,9 @@ main() {
         restart)
             restart_service
             ;;
+        rebuild)
+            rebuild_service
+            ;;
         status)
             check_status
             ;;
@@ -294,25 +322,21 @@ main() {
             clean_logs
             ;;
         *)
-            echo "用法: $0 {start|stop|restart|status|logs|clean}"
+            echo "用法: $0 {start|stop|restart|rebuild|status|logs|clean}"
             echo ""
             echo "命令说明:"
-            echo "  start    - 启动服务"
+            echo "  start    - 启动服务 (多用户模式, 本地前端)"
             echo "  stop     - 停止服务"
             echo "  restart  - 重启服务"
+            echo "  rebuild  - 构建前端并重启服务"
             echo "  status   - 查看服务状态"
             echo "  logs     - 查看日志"
             echo "  clean    - 清理日志"
             echo ""
-            echo "示例:"
-            echo "  $0 start     # 启动ComfyUI服务"
-            echo "  $0 status    # 查看服务状态"
-            echo "  $0 logs      # 查看日志"
-            echo "  $0 restart   # 重启服务"
+            echo "启动参数: $START_ARGS"
             exit 1
             ;;
     esac
 }
 
-# 执行主函数
 main "$@"

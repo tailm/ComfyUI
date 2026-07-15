@@ -1,0 +1,13 @@
+
+.recording-button-blink[data-v-880b2ea3] {
+  animation: blink-880b2ea3 1s infinite;
+}
+@keyframes blink-880b2ea3 {
+0%,
+  100% {
+    opacity: 1;
+}
+50% {
+    opacity: 0.5;
+}
+}

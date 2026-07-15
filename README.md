@@ -11,26 +11,26 @@
 
 </div>
 
-## 📖 项目简介
+## 项目简介
 
-本项目是基于开源的ComfyUI，在保留原有强大功能的基础上，新增了**多用户系统**和**数据隔离**功能，适用于团队协作和多用户场景。
+本项目基于开源 ComfyUI，新增了**多用户系统**和**数据隔离**功能，前端从本地 `web/` 目录加载，无需依赖外部 pip 包，适用于团队协作和独立部署场景。
 
-### ✨ 核心特性
+### 核心特性
 
-- 🎨 **完整的 ComfyUI 功能** - 支持所有原生节点和工作流
-- 👥 **多用户系统** - 支持多用户独立使用，数据完全隔离
-- 🔐 **数据隔离** - 每个用户拥有独立的工作流、设置和输出目录
-- 🚀 **服务管理** - 内置服务管理脚本，方便运维
-- 📊 **用户管理** - 支持用户创建、切换和管理
-- 💾 **数据持久化** - 用户数据自动保存和恢复
+- 完整的 ComfyUI 功能 - 支持所有原生节点和工作流
+- 多用户系统 - 支持多用户独立使用，数据完全隔离
+- 数据隔离 - 每个用户拥有独立的工作流、设置和输出目录
+- 本地前端 - 前端从项目 `web/` 目录加载，无需 `comfyui-frontend-package`
+- 服务管理 - 内置服务管理脚本，方便运维
 
-## 🚀 快速开始
+## 快速开始
 
 ### 系统要求
 
 - Python 3.13+
 - PyTorch 2.12+
 - CUDA 13.0+ (推荐)
+- Node.js 18+ (仅前端构建时需要)
 - 16GB+ RAM (推荐)
 - NVIDIA GPU (推荐)
 
@@ -42,31 +42,31 @@ git clone https://github.com/your-repo/ComfyUI.git
 cd ComfyUI
 ```
 
-2. **安装依赖**
+2. **安装 Python 依赖**
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **启动服务（无用户模式）**
+3. **构建前端**（首次部署或前端代码更新后执行）
 ```bash
-python main.py --listen 0.0.0.0 --port 8188
+cd ComfyUI_frontend
+pnpm install
+pnpm build
 ```
 
-4. **启动服务（多用户模式）**
+4. **同步前端到 web 目录**
 ```bash
+# 构建产物在 ComfyUI_frontend/dist/，需同步到 web/ 目录
+python scripts/sync_frontend.py
+```
+
+5. **启动服务**
+```bash
+# 多用户模式（推荐）
 python main.py --listen 0.0.0.0 --port 8188 --multi-user
-```
 
-5. **启动服务（本地前端模式）**
-
-使用 `--front-end-local` 参数可直接从项目 `web/` 目录加载前端，无需依赖 `comfyui-frontend-package` pip 包，适合离线或独立部署场景：
-```bash
-python main.py --listen 0.0.0.0 --port 8188 --front-end-local
-```
-
-也可与多用户模式组合使用：
-```bash
-python main.py --listen 0.0.0.0 --port 8188 --multi-user --front-end-local
+# 单用户模式
+python main.py --listen 0.0.0.0 --port 8188
 ```
 
 6. **访问界面**
@@ -74,16 +74,72 @@ python main.py --listen 0.0.0.0 --port 8188 --multi-user --front-end-local
 http://localhost:8188
 ```
 
-## 👥 多用户系统
+## 前端开发
+
+### 目录结构
+
+```
+ComfyUI_frontend/       # 前端源码目录
+├── src/                # Vue 3 + TypeScript 源码
+├── dist/               # 构建输出（gitignore）
+└── package.json
+web/                    # 服务端加载的前端静态文件
+├── index.html
+├── assets/
+└── ...
+```
+
+### 前端构建流程
+
+前端代码位于 `ComfyUI_frontend/`，构建后需同步到 `web/` 目录供服务加载。
+
+```bash
+# 1. 安装前端依赖
+cd ComfyUI_frontend
+pnpm install
+
+# 2. 构建
+pnpm build
+
+# 3. 同步到 web 目录（从项目根目录执行）
+cd ..
+python scripts/sync_frontend.py
+```
+
+### 前端开发模式
+
+开发时可使用 Vite 开发服务器热更新：
+
+```bash
+cd ComfyUI_frontend
+# 连接本地后端
+pnpm dev
+
+# 连接测试云环境
+pnpm dev:cloud:test
+```
+
+### 前端代码提交
+
+前端代码在 `ComfyUI_frontend/` 目录下有独立的 git 仓库：
+
+```bash
+cd ComfyUI_frontend
+git add -A
+git commit -m "描述你的修改"
+git push origin dev
+```
+
+## 多用户系统
 
 ### 功能说明
 
 多用户系统为每个用户提供独立的工作环境：
 
-- **独立工作流** - 每个用户的工作流互不干扰
-- **独立设置** - 用户界面设置独立保存
-- **独立输出** - 生成的图片和视频分别存储
-- **数据隔离** - 用户之间无法访问彼此的数据
+- 独立工作流 - 每个用户的工作流互不干扰
+- 独立设置 - 用户界面设置独立保存
+- 独立输出 - 生成的图片和视频分别存储
+- 数据隔离 - 用户之间无法访问彼此的数据
 
 ### 用户目录结构
 
@@ -113,17 +169,15 @@ curl http://localhost:8188/users
 #### 切换用户
 在浏览器中访问 `http://localhost:8188`，系统会自动识别用户身份。
 
-## 🔧 服务管理
+## 服务管理
 
-### 服务管理脚本
-
-项目提供了便捷的服务管理脚本：
+使用 `scripts/service_manager.sh` 管理服务：
 
 ```bash
 # 查看服务状态
 ./scripts/service_manager.sh status
 
-# 启动服务
+# 启动服务（多用户模式）
 ./scripts/service_manager.sh start
 
 # 停止服务
@@ -137,16 +191,18 @@ curl http://localhost:8188/users
 
 # 清理日志
 ./scripts/service_manager.sh clean
+
+# 构建前端并重启
+./scripts/service_manager.sh rebuild
 ```
 
-### 快速重启
+### 快速检查
 
 ```bash
-# 快速重启服务
 ./scripts/check_service.sh
 ```
 
-## 📁 项目结构
+## 项目结构
 
 ```
 ComfyUI/
@@ -155,7 +211,8 @@ ComfyUI/
 ├── comfy_api/              # API接口
 ├── comfy_extras/           # 扩展节点
 ├── custom_nodes/           # 自定义节点
-├── web/                    # 前端静态文件（--front-end-local 模式使用）
+├── ComfyUI_frontend/       # 前端源码（独立 git 仓库）
+├── web/                    # 前端静态文件（服务从此目录加载）
 ├── models/                 # 模型文件
 │   ├── diffusion_models/   # 扩散模型
 │   ├── vae/                # VAE模型
@@ -164,45 +221,21 @@ ComfyUI/
 ├── user/                   # 用户数据目录
 ├── input/                  # 输入文件
 ├── output/                 # 输出文件
-├── config/                 # 配置文件
 ├── scripts/                # 工具脚本
-├── docs/                   # 文档
-└── data/                   # 数据文件
+└── app/                    # 应用层代码
+    ├── frontend_management.py  # 前端管理（本地 web 目录）
+    └── user_manager.py         # 用户管理
 ```
 
-## 🎯 使用指南
-
-### 基本工作流
-
-1. **启动服务** - 使用服务管理脚本启动
-2. **访问界面** - 打开浏览器访问 `http://localhost:8188`
-3. **创建工作流** - 在界面中拖拽节点创建工作流
-4. **执行生成** - 点击运行按钮生成图片或视频
-5. **查看结果** - 在输出目录查看生成结果
-
-### 多用户使用
-
-1. **启动多用户模式** - 添加 `--multi-user` 参数
-2. **用户识别** - 系统自动识别用户身份
-3. **独立工作** - 每个用户独立使用，互不干扰
-4. **数据隔离** - 用户数据自动隔离存储
-
-## 📚 文档
-
-详细文档请查看 `docs/` 目录：
-
-- [多用户系统说明](docs/MULTI_USER_SYSTEM.md)
-- [数据隔离开发指南](docs/DATA_ISOLATION_DEVELOPER_GUIDE.md)
-- [服务管理指南](docs/SERVICE_MANAGEMENT.md)
-- [快速重启备忘单](docs/QUICK_RESTART_CHEATSHEET.md)
-- [故障排除指南](docs/TROUBLESHOOTING.md)
-
-## 🔍 故障排除
+## 故障排除
 
 ### 常见问题
 
 **Q: 服务无法启动？**
-A: 检查端口是否被占用，使用 `lsof -i :8188` 查看。
+A: 检查端口是否被占用：`lsof -i :8188`。检查前端文件是否存在：`ls web/index.html`。
+
+**Q: 前端页面空白或报错？**
+A: 需要重新构建前端并同步：`cd ComfyUI_frontend && pnpm build && cd .. && python scripts/sync_frontend.py`
 
 **Q: 用户数据丢失？**
 A: 检查 `user/` 目录权限，确保有写入权限。
@@ -213,13 +246,9 @@ A: 检查 `models/` 目录中的模型文件是否完整。
 **Q: GPU内存不足？**
 A: 减小batch size或使用CPU模式。
 
-更多问题请查看 [故障排除指南](docs/TROUBLESHOOTING.md)。
+## 贡献指南
 
-## 🤝 贡献指南
-
-欢迎贡献代码！请查看 [贡献指南](CONTRIBUTING.md) 了解详情。
-
-### 开发环境设置
+欢迎贡献代码！
 
 1. Fork 本仓库
 2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
@@ -227,24 +256,11 @@ A: 减小batch size或使用CPU模式。
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 创建 Pull Request
 
-## 📄 许可证
+## 许可证
 
 本项目基于 MIT 许可证开源，详见 [LICENSE](LICENSE) 文件。
 
-## 🙏 致谢
+## 致谢
 
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) - 强大的稳定扩散GUI
 - 所有贡献者和支持者
-
-## 📞 联系方式
-
-- 问题反馈：[GitHub Issues](https://github.com/tailm/ComfyUI/issues)
-- 功能建议：[GitHub Discussions](https://github.com/tailm/ComfyUI/discussions)
-
----
-
-<div align="center">
-
-**⭐ 如果这个项目对你有帮助，请给一个星标！⭐**
-
-</div>

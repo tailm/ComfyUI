@@ -1288,7 +1288,6 @@ class PromptQueue:
         self.task_counter = 0
         self.queue = []
         self.currently_running = {}
-        self.history = {}
         self.flags = {}
         
         # Initialize database connection for history persistence
@@ -1323,8 +1322,6 @@ class PromptQueue:
                   status: Optional['PromptQueue.ExecutionStatus'], process_item=None, user_id="0"):
         with self.mutex:
             prompt = self.currently_running.pop(item_id)
-            if len(self.history) > MAXIMUM_HISTORY_SIZE:
-                self.history.pop(next(iter(self.history)))
 
             status_dict: Optional[dict] = None
             if status is not None:
@@ -1333,21 +1330,25 @@ class PromptQueue:
             if process_item is not None:
                 prompt = process_item(prompt)
 
-            self.history[prompt[1]] = {
+            # Build history record
+            history_record = {
                 "prompt": prompt,
                 "outputs": {},
                 'status': status_dict,
             }
-            self.history[prompt[1]].update(history_result)
+            history_record.update(history_result)
             
             # Save to database for persistence
             self._save_history_to_db(
                 prompt_id=prompt[1],
                 user_id=user_id,
                 prompt_data=prompt,
-                outputs=self.history[prompt[1]].get("outputs", {}),
+                outputs=history_record.get("outputs", {}),
                 status=status_dict
             )
+            
+            # Enforce max history size in database
+            self._enforce_history_size()
             
             self.server.queue_updated()
 
@@ -1439,15 +1440,26 @@ class PromptQueue:
         except Exception as e:
             logging.error(f"Failed to save history to database: {e}")
 
-    def _load_history_from_db(self, user_id, max_items=None, offset=0):
-        """Load history records from database for a specific user."""
+    def _load_history_from_db(self, user_id=None, max_items=None, offset=0, prompt_id=None):
+        """Load history records from database.
+        
+        If prompt_id is specified, return that specific record.
+        If user_id is specified, filter by user.
+        Supports pagination via max_items and offset.
+        """
         import sqlite3
         import json
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            if user_id:
+            if prompt_id:
+                cursor.execute('''
+                    SELECT prompt_id, prompt, outputs, status, created_at 
+                    FROM history 
+                    WHERE prompt_id = ?
+                ''', (prompt_id,))
+            elif user_id:
                 if max_items:
                     cursor.execute('''
                         SELECT prompt_id, prompt, outputs, status, created_at 
@@ -1464,7 +1476,6 @@ class PromptQueue:
                         ORDER BY created_at DESC
                     ''', (user_id,))
             else:
-                # Load all history if no user_id specified
                 if max_items:
                     cursor.execute('''
                         SELECT prompt_id, prompt, outputs, status, created_at 
@@ -1495,40 +1506,142 @@ class PromptQueue:
             logging.error(f"Failed to load history from database: {e}")
             return {}
 
-    def get_history(self, prompt_id=None, max_items=None, offset=-1, map_function=None):
-        with self.mutex:
-            if prompt_id is None:
-                out = {}
-                i = 0
-                if offset < 0 and max_items is not None:
-                    offset = len(self.history) - max_items
-                for k in self.history:
-                    if i >= offset:
-                        p = self.history[k]
-                        if map_function is not None:
-                            p = map_function(p)
-                        out[k] = p
-                        if max_items is not None and len(out) >= max_items:
-                            break
-                    i += 1
-                return out
-            elif prompt_id in self.history:
-                p = self.history[prompt_id]
-                if map_function is None:
-                    p = copy.deepcopy(p)
+    def _delete_history_from_db(self, prompt_id=None, user_id=None, delete_files=True):
+        """Delete history record(s) from database and optionally delete output files from disk.
+        
+        If prompt_id is specified, delete that specific record (ignoring user_id).
+        If user_id is specified (without prompt_id), delete all records for that user.
+        If neither is specified, delete all records.
+        If delete_files is True, also delete the output files referenced in the history records.
+        """
+        import sqlite3
+        import json
+        output_dir = folder_paths.get_output_directory()
+        files_to_delete = []
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Collect output file paths before deleting records
+            if delete_files:
+                if prompt_id:
+                    cursor.execute('SELECT outputs FROM history WHERE prompt_id = ?', (prompt_id,))
+                elif user_id:
+                    cursor.execute('SELECT outputs FROM history WHERE user_id = ?', (user_id,))
                 else:
-                    p = map_function(p)
-                return {prompt_id: p}
+                    cursor.execute('SELECT outputs FROM history')
+
+                for (outputs_json,) in cursor.fetchall():
+                    if not outputs_json:
+                        continue
+                    try:
+                        outputs = json.loads(outputs_json)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                    self._collect_output_files(outputs, output_dir, files_to_delete)
+
+            if prompt_id:
+                cursor.execute('DELETE FROM history WHERE prompt_id = ?', (prompt_id,))
+            elif user_id:
+                cursor.execute('DELETE FROM history WHERE user_id = ?', (user_id,))
             else:
-                return {}
+                cursor.execute('DELETE FROM history')
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logging.error(f"Failed to delete history from database: {e}")
+            return
 
-    def wipe_history(self):
-        with self.mutex:
-            self.history = {}
+        # Delete output files from disk after database commit
+        if delete_files:
+            for file_path in files_to_delete:
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                except Exception as e:
+                    logging.warning(f"Failed to delete output file {file_path}: {e}")
 
-    def delete_history_item(self, id_to_delete):
-        with self.mutex:
-            self.history.pop(id_to_delete, None)
+    @staticmethod
+    def _collect_output_files(outputs, output_dir, files_to_delete):
+        """Recursively collect output file paths from the outputs structure."""
+        if isinstance(outputs, dict):
+            for key, value in outputs.items():
+                if key == "images" and isinstance(value, list):
+                    for img in value:
+                        if isinstance(img, dict) and "filename" in img:
+                            subfolder = img.get("subfolder", "")
+                            filename = img["filename"]
+                            file_path = os.path.join(output_dir, subfolder, filename)
+                            files_to_delete.append(file_path)
+                elif key == "gifs" and isinstance(value, list):
+                    for gif in value:
+                        if isinstance(gif, dict) and "filename" in gif:
+                            subfolder = gif.get("subfolder", "")
+                            filename = gif["filename"]
+                            file_path = os.path.join(output_dir, subfolder, filename)
+                            files_to_delete.append(file_path)
+                elif key == "videos" and isinstance(value, list):
+                    for vid in value:
+                        if isinstance(vid, dict) and "filename" in vid:
+                            subfolder = vid.get("subfolder", "")
+                            filename = vid["filename"]
+                            file_path = os.path.join(output_dir, subfolder, filename)
+                            files_to_delete.append(file_path)
+                elif key == "audio" and isinstance(value, list):
+                    for aud in value:
+                        if isinstance(aud, dict) and "filename" in aud:
+                            subfolder = aud.get("subfolder", "")
+                            filename = aud["filename"]
+                            file_path = os.path.join(output_dir, subfolder, filename)
+                            files_to_delete.append(file_path)
+                elif key == "meshes" and isinstance(value, list):
+                    for mesh in value:
+                        if isinstance(mesh, dict) and "filename" in mesh:
+                            subfolder = mesh.get("subfolder", "")
+                            filename = mesh["filename"]
+                            file_path = os.path.join(output_dir, subfolder, filename)
+                            files_to_delete.append(file_path)
+                elif isinstance(value, (dict, list)):
+                    PromptQueue._collect_output_files(value, output_dir, files_to_delete)
+                elif isinstance(value, str) and os.path.isfile(os.path.join(output_dir, value)):
+                    files_to_delete.append(os.path.join(output_dir, value))
+        elif isinstance(outputs, list):
+            for item in outputs:
+                PromptQueue._collect_output_files(item, output_dir, files_to_delete)
+
+    def _enforce_history_size(self):
+        """Enforce maximum history size by deleting oldest records."""
+        import sqlite3
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM history')
+            count = cursor.fetchone()[0]
+            if count > MAXIMUM_HISTORY_SIZE:
+                cursor.execute('''
+                    DELETE FROM history WHERE id IN (
+                        SELECT id FROM history ORDER BY created_at ASC LIMIT ?
+                    )
+                ''', (count - MAXIMUM_HISTORY_SIZE,))
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            logging.error(f"Failed to enforce history size: {e}")
+
+    def get_history(self, prompt_id=None, max_items=None, offset=-1, user_id=None, map_function=None):
+        if prompt_id is not None:
+            return self._load_history_from_db(user_id=user_id, prompt_id=prompt_id)
+        else:
+            if offset < 0:
+                offset = 0
+            return self._load_history_from_db(user_id=user_id, max_items=max_items, offset=offset)
+
+    def wipe_history(self, user_id=None):
+        self._delete_history_from_db(user_id=user_id)
+
+    def delete_history_item(self, id_to_delete, user_id=None):
+        self._delete_history_from_db(prompt_id=id_to_delete, user_id=user_id)
 
     def set_flag(self, name, data):
         with self.mutex:

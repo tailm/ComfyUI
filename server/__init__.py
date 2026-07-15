@@ -244,12 +244,7 @@ class PromptServer():
         self.app['user_manager'] = self.user_manager
         self.sockets = dict()
         self.sockets_metadata = dict()
-        if args.front_end_root is not None:
-            self.web_root = args.front_end_root
-        elif args.front_end_local:
-            self.web_root = FrontendManager.local_frontend_path()
-        else:
-            self.web_root = FrontendManager.init_frontend(args.front_end_version)
+        self.web_root = FrontendManager.local_frontend_path()
         logging.info(f"[Prompt Server] web root: {self.web_root}")
         if args.enable_assets:
             register_assets_routes(self.app, self.user_manager)
@@ -385,7 +380,9 @@ class PromptServer():
             if dir_type == "input":
                 type_dir = folder_paths.get_input_directory()
             elif dir_type == "temp":
-                type_dir = folder_paths.get_temp_directory()
+                # Use user-specific temp directory
+                user_id = self.user_manager.get_request_user_id(request)
+                type_dir = folder_paths.get_user_temp_directory(user_id)
             elif dir_type == "output":
                 # Use user-specific output directory
                 user_id = self.user_manager.get_request_user_id(request)
@@ -556,6 +553,10 @@ class PromptServer():
                             # For output type, use user-specific output directory
                             user_id = self.user_manager.get_request_user_id(request)
                             output_dir = folder_paths.get_user_output_directory(user_id)
+                        elif type == "temp":
+                            # For temp type, use user-specific temp directory
+                            user_id = self.user_manager.get_request_user_id(request)
+                            output_dir = folder_paths.get_user_temp_directory(user_id)
                         else:
                             output_dir = folder_paths.get_directory_by_type(type)
 
@@ -680,10 +681,8 @@ class PromptServer():
             cpu_device = comfy.model_management.torch.device("cpu")
             ram_total = comfy.model_management.get_total_memory(cpu_device)
             ram_free = comfy.model_management.get_free_memory(cpu_device)
-            required_frontend_version = FrontendManager.get_required_frontend_version()
             installed_templates_version = FrontendManager.get_installed_templates_version()
             required_templates_version = FrontendManager.get_required_templates_version()
-            comfy_package_versions = FrontendManager.get_comfy_package_versions()
 
             # Report every torch device visible to multigpu, with the primary
             # device first so existing clients that read devices[0] keep working.
@@ -713,10 +712,8 @@ class PromptServer():
                     "ram_total": ram_total,
                     "ram_free": ram_free,
                     "comfyui_version": __version__,
-                    "required_frontend_version": required_frontend_version,
                     "installed_templates_version": installed_templates_version,
                     "required_templates_version": required_templates_version,
-                    "comfy_package_versions": comfy_package_versions,
                     "python_version": sys.version,
                     "pytorch_version": comfy.model_management.torch_version,
                     "embedded_python": os.path.split(os.path.split(sys.executable)[0])[1] == "python_embeded",
@@ -876,12 +873,10 @@ class PromptServer():
 
             running, queued = self.prompt_queue.get_current_queue_volatile()
             
-            # Use HistoryService for user isolation
-            from app.services.history_service import HistoryService
+            # Get user_id for data isolation
             user_id = self.user_manager.get_request_user_id(request)
             is_admin = self.user_manager.users.get(user_id, {}).get('is_admin', False)
-            history_service = HistoryService(user_id, is_admin)
-            history = history_service.get_history()
+            history = self.prompt_queue.get_history(user_id=user_id if not is_admin else None)
             
             # Also filter running and queued by user_id (non-admin only)
             if not is_admin:
@@ -926,7 +921,8 @@ class PromptServer():
                 )
 
             running, queued = self.prompt_queue.get_current_queue_volatile()
-            history = self.prompt_queue.get_history(prompt_id=job_id)
+            user_id = self.user_manager.get_request_user_id(request)
+            history = self.prompt_queue.get_history(prompt_id=job_id, user_id=user_id)
 
             running = _remove_sensitive_from_queue(running)
             queued = _remove_sensitive_from_queue(queued)
@@ -974,13 +970,7 @@ class PromptServer():
             # Get user_id from request header
             user_id = request.headers.get("comfy-user", "0")
             
-            # Try to load from database first
-            db_history = self.prompt_queue._load_history_from_db(user_id, max_items, offset)
-            if db_history:
-                return web.json_response(db_history)
-            
-            # Fallback to memory history
-            return web.json_response(self.prompt_queue.get_history(max_items=max_items, offset=offset))
+            return web.json_response(self.prompt_queue.get_history(max_items=max_items, offset=offset, user_id=user_id))
 
         @routes.get("/history/{prompt_id}")
         async def get_history_prompt_id(request):
@@ -989,13 +979,7 @@ class PromptServer():
             # Get user_id from request header
             user_id = request.headers.get("comfy-user", "0")
             
-            # Try to load from database first
-            db_history = self.prompt_queue._load_history_from_db(user_id)
-            if db_history and prompt_id in db_history:
-                return web.json_response({prompt_id: db_history[prompt_id]})
-            
-            # Fallback to memory history
-            return web.json_response(self.prompt_queue.get_history(prompt_id=prompt_id))
+            return web.json_response(self.prompt_queue.get_history(prompt_id=prompt_id, user_id=user_id))
 
         @routes.get("/queue")
         async def get_queue(request):
@@ -1131,13 +1115,14 @@ class PromptServer():
         @routes.post("/history")
         async def post_history(request):
             json_data =  await request.json()
+            user_id = request.headers.get("comfy-user", "0")
             if "clear" in json_data:
                 if json_data["clear"]:
-                    self.prompt_queue.wipe_history()
+                    self.prompt_queue.wipe_history(user_id=user_id)
             if "delete" in json_data:
                 to_delete = json_data['delete']
                 for id_to_delete in to_delete:
-                    self.prompt_queue.delete_history_item(id_to_delete)
+                    self.prompt_queue.delete_history_item(id_to_delete, user_id=user_id)
 
             return web.Response(status=200)
 

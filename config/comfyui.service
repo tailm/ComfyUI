@@ -15,10 +15,10 @@ Environment="PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128"
 Environment="HF_HUB_DISABLE_TELEMETRY=1"
 Environment="DO_NOT_TRACK=1"
 
-# 使用启动脚本
-ExecStart=/home/gpu/ComfyUI/start_comfyui.sh start
-ExecStop=/home/gpu/ComfyUI/start_comfyui.sh stop
-ExecReload=/home/gpu/ComfyUI/start_comfyui.sh restart
+# 使用服务管理脚本
+ExecStart=/home/gpu/ComfyUI/scripts/service_manager.sh start
+ExecStop=/home/gpu/ComfyUI/scripts/service_manager.sh stop
+ExecReload=/home/gpu/ComfyUI/scripts/service_manager.sh restart
 
 # 重启策略
 Restart=on-failure

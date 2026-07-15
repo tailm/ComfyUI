@@ -210,7 +210,6 @@ import nodes
 import comfy.model_management
 import comfyui_version
 import app.logger
-import hook_breaker_ac10a0
 
 import comfy.memory_management
 import comfy.model_patcher
@@ -377,7 +376,6 @@ def prompt_worker(q, server_instance):
                 comfy.model_management.soft_empty_cache()
                 last_gc_collect = current_time
                 need_gc = False
-                hook_breaker_ac10a0.restore_functions()
 
                 if not asset_seeder.is_disabled():
                     asset_seeder.enqueue_enrich(roots=("output",), compute_hashes=True)
@@ -477,12 +475,10 @@ def start_comfyui(asyncio_loop=None):
     if args.enable_manager and not args.disable_manager_ui:
         comfyui_manager.start()
 
-    hook_breaker_ac10a0.save_functions()
     asyncio_loop.run_until_complete(nodes.init_extra_nodes(
         init_custom_nodes=(not args.disable_all_custom_nodes) or len(args.whitelist_custom_nodes) > 0,
         init_api_nodes=not args.disable_api_nodes
     ))
-    hook_breaker_ac10a0.restore_functions()
 
     cuda_malloc_warning()
     setup_database()
