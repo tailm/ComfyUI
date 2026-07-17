@@ -1658,10 +1658,12 @@ class SaveImage:
     SEARCH_ALIASES = ["save", "save image", "export image", "output image", "write image", "download"]
 
     def save_images(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
-        # Get user_id from extra_pnginfo or use default
-        user_id = "0"  # default user
+        # Get user_id from extra_pnginfo (required)
+        user_id = None
         if extra_pnginfo and isinstance(extra_pnginfo, dict):
-            user_id = extra_pnginfo.get("user_id", "0")
+            user_id = extra_pnginfo.get("user_id")
+        if not user_id:
+            raise ValueError("user_id is required in extra_pnginfo for SaveImage node")
         
         # Use user-specific directory based on type
         if self.type == "temp":

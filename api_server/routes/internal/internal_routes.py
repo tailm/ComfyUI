@@ -57,7 +57,22 @@ class InternalRoutes:
             if directory_type not in ("output", "input", "temp"):
                 return web.json_response({"error": "Invalid directory type"}, status=400)
 
-            directory = get_directory_by_type(directory_type)
+            # Use user-specific directories for all types
+            user_id = request.headers.get("comfy-user") or request.cookies.get("comfy-user")
+            if not user_id:
+                return web.json_response({"error": "Authentication required"}, status=401)
+
+            if directory_type == "input":
+                from folder_paths import get_user_input_directory
+                directory = get_user_input_directory(user_id)
+            elif directory_type == "output":
+                from folder_paths import get_user_output_directory
+                directory = get_user_output_directory(user_id)
+            elif directory_type == "temp":
+                from folder_paths import get_user_temp_directory
+                directory = get_user_temp_directory(user_id)
+            else:
+                directory = get_directory_by_type(directory_type)
 
             def is_visible_file(entry: os.DirEntry) -> bool:
                 """Filter out hidden files (e.g., .DS_Store on macOS)."""

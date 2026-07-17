@@ -9,14 +9,12 @@ class AppSettings():
         self.user_manager = user_manager
 
     def get_settings(self, request):
-        try:
-            file = self.user_manager.get_request_user_filepath(
-                request,
-                "comfy.settings.json"
-            )
-        except KeyError as e:
-            logging.error("User settings not found.")
-            raise web.HTTPUnauthorized() from e
+        file = self.user_manager.get_request_user_filepath(
+            request,
+            "comfy.settings.json"
+        )
+        if isinstance(file, web.Response):
+            return file
         if os.path.isfile(file):
             try:
                 with open(file) as f:
@@ -36,12 +34,17 @@ class AppSettings():
     def add_routes(self, routes):
         @routes.get("/settings")
         async def get_settings(request):
-            return web.json_response(self.get_settings(request))
+            result = self.get_settings(request)
+            if isinstance(result, web.Response):
+                return result
+            return web.json_response(result)
 
         @routes.get("/settings/{id}")
         async def get_setting(request):
             value = None
             settings = self.get_settings(request)
+            if isinstance(settings, web.Response):
+                return settings
             setting_id = request.match_info.get("id", None)
             if setting_id and setting_id in settings:
                 value = settings[setting_id]
@@ -50,6 +53,8 @@ class AppSettings():
         @routes.post("/settings")
         async def post_settings(request):
             settings = self.get_settings(request)
+            if isinstance(settings, web.Response):
+                return settings
             new_settings = await request.json()
             self.save_settings(request, {**settings, **new_settings})
             return web.Response(status=200)
@@ -60,6 +65,8 @@ class AppSettings():
             if not setting_id:
                 return web.Response(status=400)
             settings = self.get_settings(request)
+            if isinstance(settings, web.Response):
+                return settings
             settings[setting_id] = await request.json()
             self.save_settings(request, settings)
             return web.Response(status=200)

@@ -12,12 +12,9 @@ import base64
 from datetime import datetime, timedelta
 from aiohttp import web
 from urllib import parse
-from comfy.cli_args import args
 import folder_paths
 from .app_settings import AppSettings
 from typing import TypedDict, Dict, Any, Optional
-
-default_user = "default"
 
 
 class FileInfo(TypedDict):
@@ -95,24 +92,18 @@ class UserManager():
         self.settings = AppSettings(self)
         if not os.path.exists(user_directory):
             os.makedirs(user_directory, exist_ok=True)
-            if not args.multi_user:
-                logging.warning("****** User settings have been changed to be stored on the server instead of browser storage. ******")
-                logging.warning("****** For multi-user setups add the --multi-user CLI argument to enable multiple user profiles. ******")
 
-        if args.multi_user:
-            # Load users from database
-            self.users = self._load_users_from_db()
-            if not self.users:
-                # Fallback to users.json if database is empty
-                if os.path.isfile(self.get_users_file()):
-                    with open(self.get_users_file()) as f:
-                        users_data = json.load(f)
-                        # Convert old format to new format if needed
-                        self.users = self._migrate_users_format(users_data)
-                else:
-                    self.users = {}
-        else:
-            self.users = {"default": {"username": "default", "password_hash": "", "password_salt": "", "algorithm": "none", "iterations": 0, "created_at": datetime.now().isoformat()}}
+        # Always load users from database (multi-user mode is always enabled)
+        self.users = self._load_users_from_db()
+        if not self.users:
+            # Fallback to users.json if database is empty
+            if os.path.isfile(self.get_users_file()):
+                with open(self.get_users_file()) as f:
+                    users_data = json.load(f)
+                    # Convert old format to new format if needed
+                    self.users = self._migrate_users_format(users_data)
+            else:
+                self.users = {}
 
     def _migrate_users_format(self, users_data: Dict) -> Dict[str, Dict[str, Any]]:
         """Migrate old user format to new format with password support."""
@@ -190,15 +181,22 @@ class UserManager():
         return users
 
     def get_request_user_id(self, request):
-        user = "0"  # Default user ID is now "0"
-        if args.multi_user and "comfy-user" in request.headers:
-            user = request.headers["comfy-user"]
-            # Block System Users (use same error message to prevent probing)
-            if user.startswith(folder_paths.SYSTEM_USER_PREFIX):
-                raise KeyError("Unknown user: " + user)
+        # Always require user_id - no default value allowed
+        # Try header first, then cookie (for browser direct requests like <img src>)
+        user = request.headers.get("comfy-user")
+        if not user:
+            user = request.cookies.get("comfy-user")
+        if not user:
+            raise KeyError("Authentication required: comfy-user header or cookie is missing")
+        if not user.strip():
+            raise KeyError("Authentication required: comfy-user value is empty")
+
+        # Block System Users (use same error message to prevent probing)
+        if user.startswith(folder_paths.SYSTEM_USER_PREFIX):
+            raise KeyError("Unknown user: " + user)
 
         # Reload users from database only if cache is empty
-        if args.multi_user and not self.users:
+        if not self.users:
             self.users = self._load_users_from_db()
         
         # Check if user exists in new format
@@ -212,52 +210,7 @@ class UserManager():
                     break
             
             if not user_found:
-                # If user is "default" (username), map to user "0"
-                if user == "default":
-                    # Check if user "0" exists
-                    if "0" in self.users:
-                        return "0"
-                    else:
-                        # Create user "0" with username "default"
-                        self.users["0"] = {
-                            "username": "default",
-                            "created_at": datetime.now().isoformat(),
-                            "last_login": None,
-                            "password_hash": "",
-                            "password_salt": "",
-                            "algorithm": "none",
-                            "iterations": 0
-                        }
-                        with open(self.get_users_file(), "w") as f:
-                            json.dump(self.users, f, indent=2)
-                        return "0"
-                else:
-                    # For non-default users that don't exist
-                    # Generate a username from the user ID
-                    username = user
-                    if user.isdigit():
-                        # If user ID is a number, check if it exists
-                        # If not, create with username "user_{number}"
-                        username = f"user_{user}"
-                    
-                    # Check if this username already exists
-                    for user_id, user_info in self.users.items():
-                        if isinstance(user_info, dict) and user_info.get("username") == username:
-                            # Username exists, return the existing user ID
-                            return user_id
-                    
-                    # Username doesn't exist, create new user
-                    try:
-                        user_id = self.add_user(username)
-                        logging.info(f"Auto-created user: {username} with ID: {user_id}")
-                        return user_id
-                    except Exception as e:
-                        logging.error(f"Failed to auto-create user {user}: {e}")
-                        # Fall back to user "0" if creation fails
-                        if "0" in self.users:
-                            return "0"
-                        else:
-                            raise KeyError("Unknown user: " + user)
+                raise KeyError("Unknown user: " + user)
 
         return user
 
@@ -267,7 +220,10 @@ class UserManager():
         else:
             raise KeyError("Unknown filepath type:" + type)
 
-        user = self.get_request_user_id(request)
+        try:
+            user = self.get_request_user_id(request)
+        except KeyError as e:
+            return web.Response(status=401, text=str(e))
         user_root = folder_paths.get_public_user_directory(user)
         if user_root is None:
             return None
@@ -389,31 +345,24 @@ class UserManager():
 
         @routes.get("/users")
         async def get_users(request):
-            if args.multi_user:
-                # Return user list with username and userId
-                user_list = []
-                for user_id, user_info in self.users.items():
-                    if isinstance(user_info, dict):
-                        user_list.append({
-                            "userId": user_id,
-                            "username": user_info.get("username", "")
-                        })
-                    else:
-                        # Legacy format
-                        user_list.append({
-                            "userId": user_id,
-                            "username": user_info
-                        })
+            # Return multi-user mode info without exposing user list
+            # Only return the current authenticated user's info
+            try:
+                user_id = self.get_request_user_id(request)
+            except KeyError:
                 return web.json_response({
                     "storage": "server",
-                    "users": user_list
+                    "users": []
                 })
+            user_info = self.users.get(user_id)
+            if isinstance(user_info, dict):
+                username = user_info.get("username", "")
             else:
-                user_dir = self.get_request_user_filepath(request, None, create_dir=False)
-                return web.json_response({
-                    "storage": "server",
-                    "migrated": os.path.exists(user_dir)
-                })
+                username = user_info if user_info else ""
+            return web.json_response({
+                "storage": "server",
+                "users": [{"userId": user_id, "username": username}]
+            })
 
         @routes.post("/users")
         async def post_users(request):
@@ -442,9 +391,6 @@ class UserManager():
         @routes.post("/login")
         async def login(request):
             """Authenticate user with username and password."""
-            if not args.multi_user:
-                return web.json_response({"error": "Multi-user mode is not enabled."}, status=400)
-            
             try:
                 body = await request.json()
                 username = body.get("username")
@@ -503,6 +449,8 @@ class UserManager():
                 return web.Response(status=400, text="Directory not provided")
 
             path = self.get_request_user_filepath(request, directory)
+            if isinstance(path, web.Response):
+                return path
             if not path:
                 return web.Response(status=403, text="Invalid directory")
 
@@ -573,18 +521,16 @@ class UserManager():
 
 
             # Check user validity and get the absolute path for the requested directory
-            try:
-                 base_user_path = self.get_request_user_filepath(request, None, create_dir=False)
+            base_user_path = self.get_request_user_filepath(request, None, create_dir=False)
+            if isinstance(base_user_path, web.Response):
+                return base_user_path
 
-                 if requested_rel_path:
-                     target_abs_path = self.get_request_user_filepath(request, requested_rel_path, create_dir=False)
-                 else:
-                     target_abs_path = base_user_path
-
-            except KeyError as e:
-                 # Invalid user detected by get_request_user_id inside get_request_user_filepath
-                 logging.warning(f"Access denied for user: {e}")
-                 return web.Response(status=403, text="Invalid user specified in request")
+            if requested_rel_path:
+                target_abs_path = self.get_request_user_filepath(request, requested_rel_path, create_dir=False)
+                if isinstance(target_abs_path, web.Response):
+                    return target_abs_path
+            else:
+                target_abs_path = base_user_path
 
 
             if not target_abs_path:
@@ -649,6 +595,8 @@ class UserManager():
                 return web.Response(status=400)
 
             path = self.get_request_user_filepath(request, file)
+            if isinstance(path, web.Response):
+                return path
             if not path:
                 return web.Response(status=403)
 
@@ -721,6 +669,8 @@ class UserManager():
                 )
 
             user_path = self.get_request_user_filepath(request, None)
+            if isinstance(user_path, web.Response):
+                return user_path
             if full_info:
                 resp = get_file_info(path, user_path)
             else:
@@ -782,6 +732,8 @@ class UserManager():
             shutil.move(source, dest)
 
             user_path = self.get_request_user_filepath(request, None)
+            if isinstance(user_path, web.Response):
+                return user_path
             if full_info:
                 resp = get_file_info(dest, user_path)
             else:

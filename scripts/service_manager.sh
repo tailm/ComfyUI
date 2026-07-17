@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ComfyUI 服务管理脚本
-# 适配本地前端 + 多用户模式
+# 适配本地前端
 
 SERVICE_NAME="ComfyUI"
 PORT=8188
@@ -16,7 +16,7 @@ WEB_DIR="/home/gpu/ComfyUI/web"
 SYNC_SCRIPT="/home/gpu/ComfyUI/scripts/sync_frontend.py"
 
 # 启动参数
-START_ARGS="--listen $LISTEN --port $PORT --multi-user"
+START_ARGS="--listen $LISTEN --port $PORT"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -130,7 +130,7 @@ start_service() {
         return 1
     fi
 
-    print_info "正在启动服务 (多用户模式, 本地前端)..."
+    print_info "正在启动服务 (本地前端)..."
     cd "$BASE_DIR"
     mkdir -p "$(dirname "$PID_FILE")"
     nohup $PYTHON_BIN $MAIN_SCRIPT $START_ARGS > "$LOG_FILE" 2>&1 &
@@ -325,7 +325,7 @@ main() {
             echo "用法: $0 {start|stop|restart|rebuild|status|logs|clean}"
             echo ""
             echo "命令说明:"
-            echo "  start    - 启动服务 (多用户模式, 本地前端)"
+            echo "  start    - 启动服务 (本地前端)"
             echo "  stop     - 停止服务"
             echo "  restart  - 重启服务"
             echo "  rebuild  - 构建前端并重启服务"

@@ -1,24 +1,24 @@
-# ComfyUI 多用户版本
+# ComfyUI
 
 <div align="center">
 
-[![版本](https://img.shields.io/badge/版本-1.1.0-blue.svg)](https://github.com/your-repo/ComfyUI)
+[![版本](https://img.shields.io/badge/版本-1.3.0-blue.svg)](https://github.com/your-repo/ComfyUI)
 [![Python](https://img.shields.io/badge/Python-3.13+-green.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.12+-red.svg)](https://pytorch.org/)
 [![许可证](https://img.shields.io/badge/许可证-MIT-yellow.svg)](LICENSE)
 
-**基于 ComfyUI 的多用户工作流管理系统**
+**基于 ComfyUI 的 AI 图像/视频生成工作流管理系统**
 
 </div>
 
 ## 项目简介
 
-本项目基于开源 ComfyUI，新增了**多用户系统**和**数据隔离**功能，前端从本地 `web/` 目录加载，无需依赖外部 pip 包，适用于团队协作和独立部署场景。
+本项目基于开源 ComfyUI，内置**多用户系统**和**数据隔离**功能，前端从本地 `web/` 目录加载，无需依赖外部 pip 包，适用于团队协作和独立部署场景。
 
 ### 核心特性
 
 - 完整的 ComfyUI 功能 - 支持所有原生节点和工作流
-- 多用户系统 - 支持多用户独立使用，数据完全隔离
+- 用户系统 - 支持多用户独立使用，数据完全隔离
 - 数据隔离 - 每个用户拥有独立的工作流、设置和输出目录
 - 本地前端 - 前端从项目 `web/` 目录加载，无需 `comfyui-frontend-package`
 - 服务管理 - 内置服务管理脚本，方便运维
@@ -51,22 +51,26 @@ pip install -r requirements.txt
 ```bash
 cd ComfyUI_frontend
 pnpm install
+# 标准构建（含类型检查）
 pnpm build
+# 若 typecheck 报错，可跳过类型检查直接构建
+# npx vite build --config vite.config.mts
 ```
 
 4. **同步前端到 web 目录**
 ```bash
 # 构建产物在 ComfyUI_frontend/dist/，需同步到 web/ 目录
+cd ..
 python scripts/sync_frontend.py
 ```
 
 5. **启动服务**
 ```bash
-# 多用户模式（推荐）
-python main.py --listen 0.0.0.0 --port 8188 --multi-user
 
-# 单用户模式
+# 启动服务
+
 python main.py --listen 0.0.0.0 --port 8188
+
 ```
 
 6. **访问界面**
@@ -98,12 +102,24 @@ web/                    # 服务端加载的前端静态文件
 cd ComfyUI_frontend
 pnpm install
 
-# 2. 构建
+# 2. 构建（标准方式，含类型检查）
 pnpm build
+
+# 2. 构建（跳过类型检查，当 typecheck 报错时使用）
+npx vite build --config vite.config.mts
 
 # 3. 同步到 web 目录（从项目根目录执行）
 cd ..
 python scripts/sync_frontend.py
+```
+
+> **注意**：`pnpm build` 等同于 `pnpm typecheck && vite build`。如果 tsconfig 引用上层目录配置导致 typecheck 报错（TS6059），可直接使用 `npx vite build --config vite.config.mts` 跳过类型检查进行构建。
+
+### 一键重建并重启
+
+```bash
+# 构建前端 + 同步到 web + 重启服务
+cd ComfyUI_frontend && npx vite build --config vite.config.mts && cd .. && python scripts/sync_frontend.py && ./scripts/service_manager.sh restart
 ```
 
 ### 前端开发模式
@@ -130,11 +146,11 @@ git commit -m "描述你的修改"
 git push origin dev
 ```
 
-## 多用户系统
+## 用户系统
 
 ### 功能说明
 
-多用户系统为每个用户提供独立的工作环境：
+系统为每个登录用户提供独立的工作环境：
 
 - 独立工作流 - 每个用户的工作流互不干扰
 - 独立设置 - 用户界面设置独立保存
@@ -177,7 +193,7 @@ curl http://localhost:8188/users
 # 查看服务状态
 ./scripts/service_manager.sh status
 
-# 启动服务（多用户模式）
+# 启动服务
 ./scripts/service_manager.sh start
 
 # 停止服务
@@ -235,7 +251,7 @@ ComfyUI/
 A: 检查端口是否被占用：`lsof -i :8188`。检查前端文件是否存在：`ls web/index.html`。
 
 **Q: 前端页面空白或报错？**
-A: 需要重新构建前端并同步：`cd ComfyUI_frontend && pnpm build && cd .. && python scripts/sync_frontend.py`
+A: 需要重新构建前端并同步：`cd ComfyUI_frontend && npx vite build --config vite.config.mts && cd .. && python scripts/sync_frontend.py`
 
 **Q: 用户数据丢失？**
 A: 检查 `user/` 目录权限，确保有写入权限。

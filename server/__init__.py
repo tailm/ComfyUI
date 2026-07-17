@@ -8,7 +8,7 @@ import time
 import nodes
 import folder_paths
 import execution
-from comfy_execution.jobs import JobStatus, get_job, get_all_jobs
+from comfy_execution.jobs import JobStatus, get_job, get_all_jobs, _output_file_exists
 import uuid
 import urllib
 import json
@@ -63,6 +63,31 @@ if args.enable_manager:
 def _remove_sensitive_from_queue(queue: list) -> list:
     """Remove sensitive data (index 5) from queue item tuples."""
     return [item[:5] for item in queue]
+
+
+def _filter_missing_outputs(history: dict, user_id: str):
+    """Remove output file references that don't exist on disk from history data.
+
+    Mutates the history dict in-place, filtering out items in outputs
+    whose files have been deleted (e.g. temp files cleaned up after execution).
+    """
+    for prompt_id, prompt_data in history.items():
+        outputs = prompt_data.get('outputs', {})
+        if not isinstance(outputs, dict):
+            continue
+        for node_id, node_outputs in outputs.items():
+            if not isinstance(node_outputs, dict):
+                continue
+            for media_type, items in list(node_outputs.items()):
+                if not isinstance(items, list):
+                    continue
+                filtered = []
+                for item in items:
+                    if isinstance(item, dict) and 'filename' in item:
+                        if not _output_file_exists(item, user_id=user_id):
+                            continue
+                    filtered.append(item)
+                node_outputs[media_type] = filtered
 
 
 async def send_socket_catch_exception(function, message):
@@ -373,20 +398,27 @@ class PromptServer():
 
             return web.json_response(extensions)
 
-        def get_dir_by_type(dir_type):
+        def get_dir_by_type(dir_type, req=None):
             if dir_type is None:
                 dir_type = "input"
 
-            if dir_type == "input":
-                type_dir = folder_paths.get_input_directory()
-            elif dir_type == "temp":
-                # Use user-specific temp directory
-                user_id = self.user_manager.get_request_user_id(request)
-                type_dir = folder_paths.get_user_temp_directory(user_id)
-            elif dir_type == "output":
-                # Use user-specific output directory
-                user_id = self.user_manager.get_request_user_id(request)
-                type_dir = folder_paths.get_user_output_directory(user_id)
+            try:
+                if dir_type == "input":
+                    # Use user-specific input directory
+                    user_id = self.user_manager.get_request_user_id(req if req is not None else request)
+                    type_dir = folder_paths.get_user_input_directory(user_id)
+                elif dir_type == "temp":
+                    # Use user-specific temp directory
+                    user_id = self.user_manager.get_request_user_id(req if req is not None else request)
+                    type_dir = folder_paths.get_user_temp_directory(user_id)
+                elif dir_type == "output":
+                    # Use user-specific output directory
+                    user_id = self.user_manager.get_request_user_id(req if req is not None else request)
+                    type_dir = folder_paths.get_user_output_directory(user_id)
+                else:
+                    type_dir = folder_paths.get_directory_by_type(dir_type)
+            except KeyError:
+                raise web.HTTPUnauthorized(text="Authentication required")
 
             return type_dir, dir_type
 
@@ -404,13 +436,13 @@ class PromptServer():
                 return a.hexdigest() == b.hexdigest()
             return False
 
-        def image_upload(post, image_save_function=None):
+        def image_upload(post, image_save_function=None, req=None):
             image = post.get("image")
             overwrite = post.get("overwrite")
             image_is_duplicate = False
 
             image_upload_type = post.get("type")
-            upload_dir, image_upload_type = get_dir_by_type(image_upload_type)
+            upload_dir, image_upload_type = get_dir_by_type(image_upload_type, req=req)
 
             if image and image.file:
                 filename = image.filename
@@ -472,7 +504,7 @@ class PromptServer():
         @routes.post("/upload/image")
         async def upload_image(request):
             post = await request.post()
-            return image_upload(post)
+            return image_upload(post, req=request)
 
 
         @routes.post("/upload/mask")
@@ -549,16 +581,20 @@ class PromptServer():
 
                     if output_dir is None:
                         type = request.rel_url.query.get("type", "output")
-                        if type == "output":
-                            # For output type, use user-specific output directory
-                            user_id = self.user_manager.get_request_user_id(request)
-                            output_dir = folder_paths.get_user_output_directory(user_id)
-                        elif type == "temp":
-                            # For temp type, use user-specific temp directory
-                            user_id = self.user_manager.get_request_user_id(request)
-                            output_dir = folder_paths.get_user_temp_directory(user_id)
-                        else:
-                            output_dir = folder_paths.get_directory_by_type(type)
+                        try:
+                            if type == "output":
+                                user_id = self.user_manager.get_request_user_id(request)
+                                output_dir = folder_paths.get_user_output_directory(user_id)
+                            elif type == "temp":
+                                user_id = self.user_manager.get_request_user_id(request)
+                                output_dir = folder_paths.get_user_temp_directory(user_id)
+                            elif type == "input":
+                                user_id = self.user_manager.get_request_user_id(request)
+                                output_dir = folder_paths.get_user_input_directory(user_id)
+                            else:
+                                output_dir = folder_paths.get_directory_by_type(type)
+                        except KeyError:
+                            return web.Response(status=401, text="Authentication required")
 
                     if output_dir is None:
                         return web.Response(status=400)
@@ -782,24 +818,47 @@ class PromptServer():
 
         @routes.get("/object_info")
         async def get_object_info(request):
-            asset_seeder.start(roots=("models", "input", "output"))
-            with folder_paths.cache_helper:
-                out = {}
-                for x in nodes.NODE_CLASS_MAPPINGS:
-                    try:
-                        out[x] = node_info(x)
-                    except Exception:
-                        logging.error(f"[ERROR] An error occurred while retrieving information for the '{x}' node.")
-                        logging.error(traceback.format_exc())
-                return web.json_response(out)
+            # Set execution context for user isolation so INPUT_TYPES()
+            # returns user-specific file lists (e.g. LoadImage node)
+            from app.execution_context import ExecutionContext
+            user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
+            ctx = ExecutionContext(user_id) if user_id else None
+            if ctx:
+                ctx.__enter__()
+
+            try:
+                asset_seeder.start(roots=("models", "input", "output"))
+                with folder_paths.cache_helper:
+                    out = {}
+                    for x in nodes.NODE_CLASS_MAPPINGS:
+                        try:
+                            out[x] = node_info(x)
+                        except Exception:
+                            logging.error(f"[ERROR] An error occurred while retrieving information for the '{x}' node.")
+                            logging.error(traceback.format_exc())
+                    return web.json_response(out)
+            finally:
+                if ctx:
+                    ctx.__exit__(None, None, None)
 
         @routes.get("/object_info/{node_class}")
         async def get_object_info_node(request):
-            node_class = request.match_info.get("node_class", None)
-            out = {}
-            if (node_class is not None) and (node_class in nodes.NODE_CLASS_MAPPINGS):
-                out[node_class] = node_info(node_class)
-            return web.json_response(out)
+            # Set execution context for user isolation
+            from app.execution_context import ExecutionContext
+            user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
+            ctx = ExecutionContext(user_id) if user_id else None
+            if ctx:
+                ctx.__enter__()
+
+            try:
+                node_class = request.match_info.get("node_class", None)
+                out = {}
+                if (node_class is not None) and (node_class in nodes.NODE_CLASS_MAPPINGS):
+                    out[node_class] = node_info(node_class)
+                return web.json_response(out)
+            finally:
+                if ctx:
+                    ctx.__exit__(None, None, None)
 
         @routes.get("/api/jobs")
         async def get_jobs(request):
@@ -895,7 +954,8 @@ class PromptServer():
                 sort_by=sort_by,
                 sort_order=sort_order,
                 limit=limit,
-                offset=offset
+                offset=offset,
+                user_id=user_id
             )
 
             has_more = (offset + len(jobs)) < total
@@ -927,7 +987,7 @@ class PromptServer():
             running = _remove_sensitive_from_queue(running)
             queued = _remove_sensitive_from_queue(queued)
 
-            job = get_job(job_id, running, queued, history)
+            job = get_job(job_id, running, queued, history, user_id=user_id)
             if job is None:
                 return web.json_response(
                     {"error": "Job not found"},
@@ -936,13 +996,96 @@ class PromptServer():
 
             return web.json_response(job)
 
+        @routes.post("/jobs/{job_id}/cancel")
+        async def cancel_job(request):
+            """Cancel a running or queued job by ID."""
+            job_id = request.match_info.get("job_id", None)
+            if not job_id:
+                return web.json_response(
+                    {"error": "job_id is required"},
+                    status=400
+                )
+
+            cancelled = False
+
+            # Check if the job is currently running
+            currently_running, _ = self.prompt_queue.get_current_queue()
+            for item in currently_running:
+                if item[1] == job_id:
+                    nodes.interrupt_processing()
+                    logging.info(f"Interrupted running job {job_id}")
+                    cancelled = True
+                    break
+
+            # Remove from queue if queued (not yet running)
+            delete_func = lambda a: a[1] == job_id
+            deleted = self.prompt_queue.delete_queue_item(delete_func)
+            if deleted:
+                logging.info(f"Deleted queued job {job_id}")
+                cancelled = True
+
+            if not cancelled:
+                return web.json_response(
+                    {"error": f"Job {job_id} not found in queue or running"},
+                    status=404
+                )
+
+            return web.json_response({"success": True, "job_id": job_id})
+
+        @routes.post("/jobs/cancel")
+        async def cancel_jobs(request):
+            """Cancel multiple jobs in a single request."""
+            try:
+                json_data = await request.json()
+            except json.JSONDecodeError:
+                return web.json_response(
+                    {"error": "Invalid JSON body"},
+                    status=400
+                )
+
+            job_ids = json_data.get("job_ids", [])
+            if not job_ids:
+                return web.json_response(
+                    {"error": "job_ids is required"},
+                    status=400
+                )
+
+            cancelled_ids = []
+            interrupt_needed = False
+
+            # Check running jobs
+            currently_running, _ = self.prompt_queue.get_current_queue()
+            running_ids = {item[1] for item in currently_running}
+
+            for job_id in job_ids:
+                if job_id in running_ids:
+                    interrupt_needed = True
+                    cancelled_ids.append(job_id)
+                else:
+                    # Try to delete from queue
+                    delete_func = lambda a, jid=job_id: a[1] == jid
+                    deleted = self.prompt_queue.delete_queue_item(delete_func)
+                    if deleted:
+                        cancelled_ids.append(job_id)
+
+            if interrupt_needed:
+                nodes.interrupt_processing()
+                logging.info(f"Interrupted running jobs: {cancelled_ids}")
+
+            return web.json_response({
+                "success": True,
+                "cancelled_job_ids": cancelled_ids
+            })
+
         @routes.get("/user.css")
         async def get_user_css(request):
             """Return user custom CSS or empty if not exists."""
             try:
-                user_id = request.headers.get("comfy-user", "0")
+                user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user")) or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user") or request.cookies.get("comfy-user")
+                if not user_id:
+                    return web.Response(status=401, text="Authentication required: comfy-user header is missing or empty")
                 user_dir = folder_paths.get_user_directory()
-                user_css_path = os.path.join(user_dir, f"user_{user_id}", "user.css")
+                user_css_path = os.path.join(user_dir, user_id, "user.css")
 
                 if os.path.exists(user_css_path):
                     return web.FileResponse(user_css_path)
@@ -967,19 +1110,29 @@ class PromptServer():
             else:
                 offset = 0
             
-            # Get user_id from request header
-            user_id = request.headers.get("comfy-user", "0")
-            
-            return web.json_response(self.prompt_queue.get_history(max_items=max_items, offset=offset, user_id=user_id))
+            # Get user_id from request header (required)
+            user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
+            if not user_id:
+                return web.json_response({"error": "Authentication required: comfy-user header is missing or empty"}, status=401)
+
+            history = self.prompt_queue.get_history(max_items=max_items, offset=offset, user_id=user_id)
+            # Filter out outputs that reference files not on disk
+            _filter_missing_outputs(history, user_id)
+            return web.json_response(history)
 
         @routes.get("/history/{prompt_id}")
         async def get_history_prompt_id(request):
             prompt_id = request.match_info.get("prompt_id", None)
             
-            # Get user_id from request header
-            user_id = request.headers.get("comfy-user", "0")
-            
-            return web.json_response(self.prompt_queue.get_history(prompt_id=prompt_id, user_id=user_id))
+            # Get user_id from request header (required)
+            user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
+            if not user_id:
+                return web.json_response({"error": "Authentication required: comfy-user header is missing or empty"}, status=401)
+
+            history = self.prompt_queue.get_history(prompt_id=prompt_id, user_id=user_id)
+            # Filter out outputs that reference files not on disk
+            _filter_missing_outputs(history, user_id)
+            return web.json_response(history)
 
         @routes.get("/queue")
         async def get_queue(request):
@@ -1009,13 +1162,22 @@ class PromptServer():
                 prompt = json_data["prompt"]
                 prompt_id = str(json_data.get("prompt_id", uuid.uuid4()))
 
-                partial_execution_targets = None
-                if "partial_execution_targets" in json_data:
-                    partial_execution_targets = json_data["partial_execution_targets"]
+                # Extract user_id early for validation context
+                user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
+                if not user_id:
+                    return web.json_response({"error": "Authentication required: comfy-user header is missing or empty"}, status=401)
 
-                self.node_replace_manager.apply_replacements(prompt)
+                # Set execution context so validate_prompt can find user-specific files
+                from app.execution_context import ExecutionContext
+                with ExecutionContext(user_id):
+                    partial_execution_targets = None
+                    if "partial_execution_targets" in json_data:
+                        partial_execution_targets = json_data["partial_execution_targets"]
 
-                valid = await execution.validate_prompt(prompt_id, prompt, partial_execution_targets)
+                    self.node_replace_manager.apply_replacements(prompt)
+
+                    valid = await execution.validate_prompt(prompt_id, prompt, partial_execution_targets)
+
                 extra_data = {}
                 if "extra_data" in json_data:
                     extra_data = json_data["extra_data"]
@@ -1023,8 +1185,7 @@ class PromptServer():
                 if "client_id" in json_data:
                     extra_data["client_id"] = json_data["client_id"]
                 
-                # Add user_id to extra_data for user isolation
-                user_id = request.headers.get("comfy-user", "0")
+                # Add user_id to extra_data for user isolation (required)
                 extra_data["user_id"] = user_id
 
                 # Add user_id to extra_pnginfo for node access
@@ -1115,7 +1276,9 @@ class PromptServer():
         @routes.post("/history")
         async def post_history(request):
             json_data =  await request.json()
-            user_id = request.headers.get("comfy-user", "0")
+            user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
+            if not user_id:
+                return web.json_response({"error": "Authentication required: comfy-user header is missing or empty"}, status=401)
             if "clear" in json_data:
                 if json_data["clear"]:
                     self.prompt_queue.wipe_history(user_id=user_id)

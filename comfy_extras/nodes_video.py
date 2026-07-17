@@ -31,10 +31,12 @@ class SaveWEBM(io.ComfyNode):
 
     @classmethod
     def execute(cls, images, codec, fps, filename_prefix, crf) -> io.NodeOutput:
-        # Get user_id from extra_pnginfo or use default
-        user_id = "0"  # default user
+        # Get user_id from extra_pnginfo (required)
+        user_id = None
         if cls.hidden.extra_pnginfo is not None and isinstance(cls.hidden.extra_pnginfo, dict):
-            user_id = cls.hidden.extra_pnginfo.get("user_id", "0")
+            user_id = cls.hidden.extra_pnginfo.get("user_id")
+        if not user_id:
+            raise ValueError("user_id is required in extra_pnginfo for video node")
 
         # Use user-specific output directory
         output_dir = folder_paths.get_user_output_directory(user_id)
@@ -94,10 +96,12 @@ class SaveVideo(io.ComfyNode):
 
     @classmethod
     def execute(cls, video: Input.Video, filename_prefix, format: str, codec) -> io.NodeOutput:
-        # Get user_id from extra_pnginfo or use default
-        user_id = "0"  # default user
+        # Get user_id from extra_pnginfo (required)
+        user_id = None
         if cls.hidden.extra_pnginfo is not None and isinstance(cls.hidden.extra_pnginfo, dict):
-            user_id = cls.hidden.extra_pnginfo.get("user_id", "0")
+            user_id = cls.hidden.extra_pnginfo.get("user_id")
+        if not user_id:
+            raise ValueError("user_id is required in extra_pnginfo for video node")
 
         # Use user-specific output directory
         output_dir = folder_paths.get_user_output_directory(user_id)

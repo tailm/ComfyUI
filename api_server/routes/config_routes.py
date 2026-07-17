@@ -19,19 +19,29 @@ logger = logging.getLogger(__name__)
 def get_user_id_from_request(request: web.Request) -> str:
     """
     Extract user ID from request.
+    Requires comfy-user header - no default value allowed.
     
     Args:
         request: HTTP request
         
     Returns:
         User ID string
+        
+    Raises:
+        web.HTTPUnauthorized: If user_id is missing or empty
     """
     # Try to get from header first
-    user_id = request.headers.get("comfy-user", None)
+    user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
     
     # Fall back to request context if available
     if not user_id:
-        user_id = request.get("user_id", "0")
+        user_id = request.get("user_id")
+    
+    if not user_id:
+        raise web.HTTPUnauthorized(
+            text="Authentication required: comfy-user header is missing or empty",
+            content_type="application/json"
+        )
     
     return user_id
 

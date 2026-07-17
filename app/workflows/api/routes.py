@@ -31,7 +31,7 @@ async def list_workflows(request: web.Request) -> web.Response:
     """
     try:
         # Get user context from request (injected by middleware)
-        user_id = request.get('user_id', '0')
+        user_id = request.get('user_id')
         is_admin = request.get('is_admin', False)
         
         # Get query parameters
@@ -96,7 +96,7 @@ async def get_workflow(request: web.Request) -> web.Response:
     """
     try:
         # Get user context
-        user_id = request.get('user_id', '0')
+        user_id = request.get('user_id')
         is_admin = request.get('is_admin', False)
         
         # Get workflow ID
@@ -168,7 +168,7 @@ async def save_workflow(request: web.Request) -> web.Response:
     """
     try:
         # Get user context
-        user_id = request.get('user_id', '0')
+        user_id = request.get('user_id')
         is_admin = request.get('is_admin', False)
         
         # Parse request body
@@ -230,7 +230,7 @@ async def delete_workflow(request: web.Request) -> web.Response:
     """
     try:
         # Get user context
-        user_id = request.get('user_id', '0')
+        user_id = request.get('user_id')
         is_admin = request.get('is_admin', False)
         
         # Get workflow ID
@@ -285,7 +285,7 @@ async def get_templates(request: web.Request) -> web.Response:
     """
     try:
         # Get user context
-        user_id = request.get('user_id', '0')
+        user_id = request.get('user_id')
         is_admin = request.get('is_admin', False)
         
         # Get query parameters
@@ -351,7 +351,7 @@ async def duplicate_workflow(request: web.Request) -> web.Response:
     """
     try:
         # Get user context
-        user_id = request.get('user_id', '0')
+        user_id = request.get('user_id')
         is_admin = request.get('is_admin', False)
         
         # Get workflow ID

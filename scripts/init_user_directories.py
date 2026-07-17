@@ -46,12 +46,11 @@ def init_user_directory(user_id: str, dry_run: bool = False) -> Dict[str, Any]:
     try:
         if dry_run:
             # 只列出将要创建的目录
-            base_output = folder_paths.output_directory
             base_user = folder_paths.user_directory
             
             result['directories'] = {
-                'output': os.path.join(base_output, f"user_{user_id}"),
-                'data': os.path.join(base_user, f"user_{user_id}"),
+                'output': os.path.join(base_user, user_id, "output"),
+                'data': os.path.join(base_user, user_id),
             }
             logger.info(f"[DRY RUN] Would create directories for user {user_id}")
         else:

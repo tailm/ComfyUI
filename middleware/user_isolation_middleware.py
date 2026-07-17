@@ -3,6 +3,7 @@ User Isolation Middleware
 
 This middleware automatically extracts and validates user_id from requests,
 injecting it into the request context for data isolation enforcement.
+Unauthenticated requests (missing or empty user_id) are rejected with 401.
 """
 
 import logging
@@ -11,6 +12,12 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# Paths that do not require authentication
+PUBLIC_PATHS = {"/login", "/api/login", "/api/logout", "/logout", "/user.css"}
+
+# Static file extensions that are served without authentication
+STATIC_EXTENSIONS = {".js", ".css", ".ico", ".png", ".jpg", ".svg", ".woff", ".woff2", ".ttf", ".map"}
+
 
 class UserIsolationMiddleware:
     """
@@ -18,6 +25,7 @@ class UserIsolationMiddleware:
     
     Extracts user_id from request headers/cookies and validates it,
     then injects user_id and is_admin flags into request context.
+    Rejects unauthenticated requests with 401.
     """
     
     def __init__(self, user_manager):
@@ -41,8 +49,27 @@ class UserIsolationMiddleware:
             Middleware handler
         """
         async def middleware_handler(request):
+            # Check if this is a public path that doesn't need auth
+            path = request.path
+            if path in PUBLIC_PATHS:
+                return await handler(request)
+            
+            # Check if this is a static file request
+            if any(path.endswith(ext) for ext in STATIC_EXTENSIONS):
+                return await handler(request)
+            
+            # Check if this is the root page (frontend entry)
+            if path == "/":
+                return await handler(request)
+            
             # Extract and validate user_id
             user_id, is_admin = self._extract_and_validate_user(request)
+            
+            if user_id is None:
+                return web.json_response(
+                    {"error": "Authentication required: user_id is missing or invalid"},
+                    status=401
+                )
             
             # Inject into request context
             request['user_id'] = user_id
@@ -53,7 +80,7 @@ class UserIsolationMiddleware:
         
         return middleware_handler
     
-    def _extract_and_validate_user(self, request) -> Tuple[str, bool]:
+    def _extract_and_validate_user(self, request) -> Tuple[Optional[str], bool]:
         """
         Extract user_id from request and validate it.
         
@@ -61,49 +88,48 @@ class UserIsolationMiddleware:
             request: aiohttp request
             
         Returns:
-            Tuple of (user_id, is_admin)
+            Tuple of (user_id, is_admin). user_id is None if unauthenticated.
         """
         # Extract user_id
         user_id = self._extract_user_id(request)
+        
+        if not user_id:
+            return None, False
         
         # Validate user_id
         is_valid, is_admin = self._validate_user_id(user_id)
         
         if not is_valid:
-            # Fall back to default user
-            logger.warning(f"Invalid user_id '{user_id}', falling back to default")
-            user_id = "0"
-            is_admin = False
+            logger.warning(f"Invalid user_id '{user_id}' in request")
+            return None, False
         
         return user_id, is_admin
     
-    def _extract_user_id(self, request) -> str:
+    def _extract_user_id(self, request) -> Optional[str]:
         """
-        Extract user_id from request headers, cookies, or use default.
+        Extract user_id from request headers or cookies.
         
         Priority:
         1. Request header 'comfy-user'
-        2. Request cookie 'comfy_user'
-        3. Default value '0'
+        2. Request cookie 'comfy-user'
         
         Args:
             request: aiohttp request
             
         Returns:
-            Extracted user_id string
+            Extracted user_id string, or None if not found
         """
         # Try header first
         user_id = request.headers.get('comfy-user')
         if user_id:
             return user_id
         
-        # Try cookie
-        user_id = request.cookies.get('comfy_user')
+        # Try cookie (use same name as header)
+        user_id = request.cookies.get('comfy-user')
         if user_id:
             return user_id
         
-        # Use default
-        return "0"
+        return None
     
     def _validate_user_id(self, user_id: str) -> Tuple[bool, bool]:
         """
@@ -127,9 +153,10 @@ class UserIsolationMiddleware:
                 if not exists:
                     return False, False
             else:
-                # If user_manager doesn't have user_exists, assume valid
-                # This handles cases where multi-user mode is disabled
-                pass
+                # Check in user_manager.users dict
+                if hasattr(self.user_manager, 'users'):
+                    if user_id not in self.user_manager.users:
+                        return False, False
             
             # Check if user is admin
             is_admin = self._is_admin(user_id)

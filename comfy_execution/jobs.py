@@ -3,6 +3,7 @@ Job utilities for the /api/jobs endpoint.
 Provides normalization and helper functions for job status tracking.
 """
 
+import os
 from typing import Optional
 
 from comfy_api.internal import prune_dict
@@ -31,6 +32,54 @@ def has_3d_extension(filename: str) -> bool:
     return any(lower.endswith(ext) for ext in THREE_D_EXTENSIONS)
 
 
+def _output_file_exists(item: dict, user_id: str = None) -> bool:
+    """Check if an output file actually exists on disk.
+
+    Args:
+        item: Output dict with 'filename', 'type', 'subfolder' keys
+        user_id: User ID for user-isolated directories
+
+    Returns:
+        True if file exists, False otherwise
+    """
+    filename = item.get('filename', '')
+    if not filename:
+        return False
+
+    ftype = item.get('type', 'output')
+    subfolder = item.get('subfolder', '')
+
+    try:
+        import folder_paths
+        if ftype == 'output':
+            if user_id:
+                base_dir = folder_paths.get_user_output_directory(user_id)
+            else:
+                base_dir = folder_paths.get_output_directory()
+        elif ftype == 'input':
+            if user_id:
+                base_dir = folder_paths.get_user_input_directory(user_id)
+            else:
+                base_dir = folder_paths.get_input_directory()
+        elif ftype == 'temp':
+            if user_id:
+                base_dir = folder_paths.get_user_temp_directory(user_id)
+            else:
+                base_dir = folder_paths.get_temp_directory()
+        else:
+            base_dir = folder_paths.get_directory_by_type(ftype)
+
+        if subfolder:
+            full_path = os.path.join(base_dir, subfolder, filename)
+        else:
+            full_path = os.path.join(base_dir, filename)
+
+        return os.path.exists(full_path)
+    except Exception:
+        # If we can't check, assume it exists to avoid false negatives
+        return True
+
+
 def normalize_output_item(item):
     """Normalize a single output list item for the jobs API.
 
@@ -48,12 +97,11 @@ def normalize_output_item(item):
     return None
 
 
-def normalize_outputs(outputs: dict) -> dict:
+def normalize_outputs(outputs: dict, user_id: str = None) -> dict:
     """Normalize raw node outputs for the jobs API.
 
     Transforms string 3D filenames into file output dicts and removes
-    None items. All other items (non-3D strings, dicts, etc.) are
-    preserved as-is.
+    None items and files that don't exist on disk.
     """
     normalized = {}
     for node_id, node_outputs in outputs.items():
@@ -70,7 +118,12 @@ def normalize_outputs(outputs: dict) -> dict:
                 if item is None:
                     continue
                 norm = normalize_output_item(item)
-                normalized_items.append(norm if norm is not None else item)
+                result = norm if norm is not None else item
+                # Filter out files that don't exist on disk
+                if isinstance(result, dict) and 'filename' in result:
+                    if not _output_file_exists(result, user_id=user_id):
+                        continue
+                normalized_items.append(result)
             normalized_node[media_type] = normalized_items
         normalized[node_id] = normalized_node
     return normalized
@@ -151,7 +204,7 @@ def normalize_queue_item(item: tuple, status: str) -> dict:
     })
 
 
-def normalize_history_item(prompt_id: str, history_item: dict, include_outputs: bool = False) -> dict:
+def normalize_history_item(prompt_id: str, history_item: dict, include_outputs: bool = False, user_id: str = None) -> dict:
     """Convert history item dict to unified job dict.
 
     History items have sensitive data already removed (prompt tuple has 5 elements).
@@ -164,7 +217,7 @@ def normalize_history_item(prompt_id: str, history_item: dict, include_outputs: 
     status_str = status_info.get('status_str') if status_info else None
 
     outputs = history_item.get('outputs', {})
-    outputs_count, preview_output = get_outputs_summary(outputs)
+    outputs_count, preview_output = get_outputs_summary(outputs, user_id=user_id)
 
     execution_error = None
     execution_start_time = None
@@ -206,7 +259,7 @@ def normalize_history_item(prompt_id: str, history_item: dict, include_outputs: 
     })
 
     if include_outputs:
-        job['outputs'] = normalize_outputs(outputs)
+        job['outputs'] = normalize_outputs(outputs, user_id=user_id)
         job['execution_status'] = status_info
         job['workflow'] = {
             'prompt': prompt,
@@ -216,7 +269,7 @@ def normalize_history_item(prompt_id: str, history_item: dict, include_outputs: 
     return job
 
 
-def get_outputs_summary(outputs: dict) -> tuple[int, Optional[dict]]:
+def get_outputs_summary(outputs: dict, user_id: str = None) -> tuple[int, Optional[dict]]:
     """
     Count outputs and find preview in a single pass.
     Returns (outputs_count, preview_output).
@@ -224,6 +277,8 @@ def get_outputs_summary(outputs: dict) -> tuple[int, Optional[dict]]:
     Preview priority (matching frontend):
     1. type="output" with previewable media
     2. Any previewable media
+
+    Files that don't exist on disk are excluded from preview_output.
     """
     count = 0
     preview_output = None
@@ -262,6 +317,11 @@ def get_outputs_summary(outputs: dict) -> tuple[int, Optional[dict]]:
                     # normalize_output_item returned a dict (e.g. 3D file)
                     item = normalized
 
+                # Skip files that don't exist on disk
+                if isinstance(item, dict) and 'filename' in item:
+                    if not _output_file_exists(item, user_id=user_id):
+                        continue
+
                 count += 1
 
                 if preview_output is not None:
@@ -298,7 +358,7 @@ def apply_sorting(jobs: list[dict], sort_by: str, sort_order: str) -> list[dict]
     return sorted(jobs, key=get_sort_key, reverse=reverse)
 
 
-def get_job(prompt_id: str, running: list, queued: list, history: dict) -> Optional[dict]:
+def get_job(prompt_id: str, running: list, queued: list, history: dict, user_id: str = None) -> Optional[dict]:
     """
     Get a single job by prompt_id from history or queue.
 
@@ -307,12 +367,13 @@ def get_job(prompt_id: str, running: list, queued: list, history: dict) -> Optio
         running: List of currently running queue items
         queued: List of pending queue items
         history: Dict of history items keyed by prompt_id
+        user_id: User ID for file existence checks
 
     Returns:
         Job dict with full details, or None if not found
     """
     if prompt_id in history:
-        return normalize_history_item(prompt_id, history[prompt_id], include_outputs=True)
+        return normalize_history_item(prompt_id, history[prompt_id], include_outputs=True, user_id=user_id)
 
     for item in running:
         if item[1] == prompt_id:
@@ -334,7 +395,8 @@ def get_all_jobs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     limit: Optional[int] = None,
-    offset: int = 0
+    offset: int = 0,
+    user_id: str = None
 ) -> tuple[list[dict], int]:
     """
     Get all jobs (running, pending, completed) with filtering and sorting.
@@ -370,7 +432,7 @@ def get_all_jobs(
     requested_history_statuses = history_statuses & set(status_filter)
     if requested_history_statuses:
         for prompt_id, history_item in history.items():
-            job = normalize_history_item(prompt_id, history_item)
+            job = normalize_history_item(prompt_id, history_item, user_id=user_id)
             if job.get('status') in requested_history_statuses:
                 jobs.append(job)
 

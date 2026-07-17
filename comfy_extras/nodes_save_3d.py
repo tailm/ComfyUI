@@ -348,23 +348,16 @@ class SaveGLB(IO.ComfyNode):
 
     @classmethod
     def execute(cls, mesh: Types.MESH | Types.File3D, filename_prefix: str) -> IO.NodeOutput:
-        # Get user_id from hidden context for user isolation
-        user_id = "0"  # default user
-        if hasattr(cls.hidden, 'prompt') and cls.hidden.prompt is not None:
-            # Try to extract user_id from prompt context
-            if isinstance(cls.hidden.prompt, dict):
-                user_id = cls.hidden.prompt.get('user_id', '0')
-        
-        # Get user-specific output directory
-        from folder_paths.user_directory import get_user_output_directory
-        try:
-            user_output_dir = get_user_output_directory(user_id)
-        except Exception:
-            # Fallback to default output directory
-            user_output_dir = folder_paths.get_output_directory()
+        # Use get_output_directory() which automatically returns user-specific directory
+        # via execution context (set by execute_async)
+        user_output_dir = folder_paths.get_output_directory()
         
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, user_output_dir)
         results = []
+
+        # Get user_id from execution context for metadata
+        from app.execution_context import get_execution_user
+        user_id = get_execution_user()
 
         metadata = {}
         if not args.disable_metadata:
@@ -375,7 +368,8 @@ class SaveGLB(IO.ComfyNode):
                     metadata[x] = json.dumps(cls.hidden.extra_pnginfo[x])
         
         # Add user_id to metadata for tracking
-        metadata["user_id"] = user_id
+        if user_id:
+            metadata["user_id"] = user_id
 
         if isinstance(mesh, Types.File3D):
             # Handle File3D input - save BytesIO data to output folder
@@ -386,8 +380,9 @@ class SaveGLB(IO.ComfyNode):
                 "filename": f,
                 "subfolder": subfolder,
                 "type": "output",
-                "user_id": user_id
             })
+            if user_id:
+                results[-1]["user_id"] = user_id
             counter += 1
         else:
             # Handle Mesh input - save vertices and faces as GLB; carry optional UVs / colors / texture.
@@ -410,12 +405,14 @@ class SaveGLB(IO.ComfyNode):
                          vertex_colors=v_colors,
                          texture_image=tex_img,
                          unlit=getattr(mesh, "unlit", False))
-                results.append({
+                result_item = {
                     "filename": f,
                     "subfolder": subfolder,
                     "type": "output",
-                    "user_id": user_id
-                })
+                }
+                if user_id:
+                    result_item["user_id"] = user_id
+                results.append(result_item)
                 counter += 1
         return IO.NodeOutput(ui={"3d": results})
 

@@ -183,7 +183,8 @@ parser.add_argument("--disable-all-custom-nodes", action="store_true", help="Dis
 parser.add_argument("--whitelist-custom-nodes", type=str, nargs='+', default=[], help="Specify custom node folders to load even when --disable-all-custom-nodes is enabled.")
 parser.add_argument("--disable-api-nodes", action="store_true", help="Disable loading all api nodes. Also prevents the frontend from communicating with the internet.")
 
-parser.add_argument("--multi-user", action="store_true", help="Enables per-user storage.")
+# --multi-user has been removed. Multi-user mode is now always enabled.
+# All users must log in to access the system.
 
 parser.add_argument("--verbose", default='INFO', const='DEBUG', nargs="?", choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], help='Set the logging level')
 parser.add_argument("--log-stdout", action="store_true", help="Send normal process output to stdout instead of stderr (default).")
@@ -199,7 +200,7 @@ def is_valid_directory(path: str) -> str:
         raise argparse.ArgumentTypeError(f"You do not have read permissions for '{path}'.")
     return path
 
-parser.add_argument("--user-directory", type=is_valid_directory, default=None, help="Set the ComfyUI user directory with an absolute path. Overrides --base-directory.")
+parser.add_argument("--user-directory", type=str, default=None, help="Set the ComfyUI user directory with an absolute path or HTTP/HTTPS URL. Overrides --base-directory. Examples: /data/users or http://192.168.50.228:8188/user")
 
 parser.add_argument("--enable-compress-response-body", action="store_true", help="Enable compressing response body.")
 

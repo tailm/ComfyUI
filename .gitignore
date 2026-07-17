@@ -108,10 +108,7 @@ __pycache__/
 
 # Model files (large binaries)
 models/
-input/
 
-# Output files
-output/
 
 # User data (runtime)
 user/

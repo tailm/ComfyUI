@@ -6,7 +6,6 @@ import os
 import logging
 from aiohttp import web
 from folder_paths import get_user_directory
-from comfy.cli_args import args
 
 routes = web.RouteTableDef()
 
@@ -18,15 +17,16 @@ async def get_user_css(request):
 
     If the user has a custom CSS file, return it.
     Otherwise, return empty CSS content.
+    Requires comfy-user header for authentication.
     """
     try:
-        # Simple user ID extraction from header
-        user_id = "0"
-        if args.multi_user and "comfy-user" in request.headers:
-            user_id = request.headers["comfy-user"]
+        # Require user_id from header
+        user_id = (request.headers.get("comfy-user") or request.cookies.get("comfy-user"))
+        if not user_id:
+            return web.Response(status=401, text="Authentication required: comfy-user header is missing or empty")
 
         user_dir = get_user_directory()
-        user_css_path = os.path.join(user_dir, f"user_{user_id}", "user.css")
+        user_css_path = os.path.join(user_dir, user_id, "user.css")
 
         if os.path.exists(user_css_path):
             return web.FileResponse(user_css_path)

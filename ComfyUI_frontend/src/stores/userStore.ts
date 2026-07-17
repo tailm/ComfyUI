@@ -93,7 +93,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   watchEffect(() => {
-    if (isMultiUserServer.value && currentUserId.value) {
+    if (currentUserId.value) {
       api.user = currentUserId.value
     }
   })

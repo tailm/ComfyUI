@@ -8,7 +8,7 @@
 # 查看服务状态
 ./scripts/service_manager.sh status
 
-# 启动服务（多用户模式，本地前端）
+# 启动服务（本地前端）
 ./scripts/service_manager.sh start
 
 # 停止服务
@@ -31,7 +31,7 @@
 
 | 命令 | 说明 |
 |------|------|
-| start | 启动服务（多用户模式，从本地 web/ 目录加载前端） |
+| start | 启动服务（从本地 web/ 目录加载前端） |
 | stop | 停止服务（优雅停止 -> 强制停止） |
 | restart | 重启服务 |
 | rebuild | 构建前端 + 同步到 web/ + 重启服务 |
@@ -44,7 +44,7 @@
 ### 启动服务
 ```bash
 cd /home/gpu/ComfyUI
-python main.py --listen 0.0.0.0 --port 8188 --multi-user
+python main.py --listen 0.0.0.0 --port 8188
 ```
 
 ### 停止服务
@@ -70,7 +70,6 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8188/
 |------|------|
 | `--listen 0.0.0.0` | 监听所有网络接口 |
 | `--port 8188` | 使用端口8188 |
-| `--multi-user` | 启用多用户模式 |
 
 前端默认从 `web/` 目录加载，无需额外参数。
 

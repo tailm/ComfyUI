@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.database.user_models import User
@@ -62,8 +62,8 @@ class AuthService:
         
         return True, ""
     
-    def _create_new_user(self, username: str, password: str) -> tuple[bool, str, Optional[User]]:
-        """创建新用户
+    def register(self, username: str, password: str) -> tuple[bool, str, Optional[User]]:
+        """注册新用户（必须通过此方法创建用户）
         
         Args:
             username: 用户名
@@ -93,8 +93,18 @@ class AuthService:
         # 加密密码
         password_data = hash_password(password)
         
+        # 生成用户ID：查找当前最大数字ID，+1
+        stmt = select(func.max(User.id))
+        result = self.session.execute(stmt)
+        max_id = result.scalar_one_or_none()
+        try:
+            new_id = str(int(max_id) + 1) if max_id and str(max_id).isdigit() else "1"
+        except (ValueError, TypeError):
+            new_id = "1"
+        
         # 创建用户
         user = User(
+            id=new_id,
             username=username,
             password_hash=password_data['hash'],
             password_salt=password_data['salt'],
@@ -110,10 +120,14 @@ class AuthService:
         self.session.add(user)
         self.session.commit()
         
-        return True, "用户创建成功", user
+        # 初始化用户目录结构
+        from folder_paths.user_directory import ensure_user_directories
+        ensure_user_directories(new_id)
+        
+        return True, "注册成功", user
     
     def authenticate(self, username: str, password: str) -> tuple[bool, str, Optional[User]]:
-        """用户认证
+        """用户认证（仅验证已注册用户，不会自动创建用户）
         
         Args:
             username: 用户名
@@ -127,9 +141,9 @@ class AuthService:
         result = self.session.execute(stmt)
         user = result.scalar_one_or_none()
         
-        # 如果用户不存在，自动创建新用户
+        # 如果用户不存在，返回错误
         if not user:
-            return self._create_new_user(username, password)
+            return False, "用户名或密码错误", None
         
         # 检查账户是否锁定
         if user.locked_until and datetime.utcnow() < user.locked_until:
@@ -164,7 +178,7 @@ class AuthService:
             
             self.session.commit()
             remaining_attempts = self.MAX_LOGIN_FAIL_COUNT - user.login_fail_count
-            return False, f"密码错误，还剩{remaining_attempts}次尝试机会", None
+            return False, f"用户名或密码错误", None
         
         # 密码正确，重置失败计数和锁定时间
         user.login_fail_count = 0

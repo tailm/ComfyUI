@@ -761,7 +761,9 @@ class PromptExecutor:
     async def execute_async(self, prompt, prompt_id, extra_data={}, execute_outputs=[]):
         # Set execution user for automatic data isolation
         from app.execution_context import set_execution_user, clear_execution_user
-        user_id = extra_data.get('user_id', '0')
+        user_id = extra_data.get('user_id')
+        if not user_id:
+            raise ValueError("user_id is required in extra_data")
         set_execution_user(user_id)
 
         try:
@@ -1319,7 +1321,9 @@ class PromptQueue:
         messages: List[str]
 
     def task_done(self, item_id, history_result,
-                  status: Optional['PromptQueue.ExecutionStatus'], process_item=None, user_id="0"):
+                  status: Optional['PromptQueue.ExecutionStatus'], process_item=None, user_id=None):
+        if not user_id:
+            raise ValueError("user_id is required for task_done")
         with self.mutex:
             prompt = self.currently_running.pop(item_id)
 

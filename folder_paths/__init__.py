@@ -65,7 +65,12 @@ folder_names_and_paths["detection"] = ([os.path.join(models_dir, "detection")], 
 output_directory = os.path.join(base_path, "output")
 temp_directory = os.path.join(base_path, "temp")
 input_directory = os.path.join(base_path, "input")
-user_directory = os.path.join(base_path, "user")
+# Use _user_root_dir internally to avoid naming conflict with user_directory submodule
+_user_root_dir = os.path.join(base_path, "user")
+# Keep user_directory as a property-like accessor for backward compatibility
+# Note: After importing folder_paths.user_directory submodule, folder_paths.user_directory
+# will be replaced by the submodule. Use get_user_directory() or _user_root_dir instead.
+user_directory = _user_root_dir
 
 filename_list_cache: dict[str, tuple[list[str], dict[str, float], float]] = {}
 
@@ -115,6 +120,26 @@ if not os.path.exists(input_directory):
     except:
         logging.error("Failed to create input directory")
 
+# Detect legacy directory structure and warn about migration
+def _check_legacy_directory_structure():
+    """Check for legacy user directory structure and log migration warning."""
+    legacy_dirs_found = []
+    for base_dir, label in [(output_directory, "output"), (input_directory, "input"), (temp_directory, "temp")]:
+        if os.path.isdir(base_dir):
+            for name in os.listdir(base_dir):
+                if name.startswith("user_") and os.path.isdir(os.path.join(base_dir, name)):
+                    legacy_dirs_found.append(f"{label}/{name}")
+    if legacy_dirs_found:
+        logging.warning(
+            "Legacy user directory structure detected: %s. "
+            "Please run 'python scripts/migrate_user_asset_structure.py --dry-run' to preview migration, "
+            "then 'python scripts/migrate_user_asset_structure.py --execute' to migrate to the new structure "
+            "(user/{user_id}/output|input|temp/).",
+            ", ".join(legacy_dirs_found)
+        )
+
+_check_legacy_directory_structure()
+
 def set_output_directory(output_dir: str) -> None:
     global output_directory
     output_directory = output_dir
@@ -129,44 +154,74 @@ def set_input_directory(input_dir: str) -> None:
 
 def get_output_directory() -> str:
     global output_directory
+    # Auto user isolation: if execution context has a user_id, return user-specific directory
+    try:
+        from app.execution_context import get_execution_user
+        user_id = get_execution_user()
+        if user_id:
+            return get_user_output_directory(user_id)
+    except ImportError:
+        pass
     return output_directory
 
 def get_user_output_directory(user_id: str) -> str:
-    """Get output directory for a specific user."""
-    global output_directory
-    # Use consistent naming: user_{user_id}
-    user_output_dir = os.path.join(output_directory, f"user_{user_id}")
+    """Get output directory for a specific user.
+    Returns user-specific directory under user_directory: {user_directory}/{user_id}/output
+    """
+    global _user_root_dir
+    user_output_dir = os.path.join(_user_root_dir, user_id, "output")
     os.makedirs(user_output_dir, exist_ok=True)
     return user_output_dir
 
 def get_temp_directory() -> str:
     global temp_directory
+    # Auto user isolation: if execution context has a user_id, return user-specific directory
+    try:
+        from app.execution_context import get_execution_user
+        user_id = get_execution_user()
+        if user_id:
+            return get_user_temp_directory(user_id)
+    except ImportError:
+        pass
     return temp_directory
 
 def get_input_directory() -> str:
     global input_directory
+    # Auto user isolation: if execution context has a user_id, return user-specific directory
+    try:
+        from app.execution_context import get_execution_user
+        user_id = get_execution_user()
+        if user_id:
+            return get_user_input_directory(user_id)
+    except ImportError:
+        pass
     return input_directory
 
 def get_user_directory() -> str:
-    return user_directory
+    return _user_root_dir
 
 def set_user_directory(user_dir: str) -> None:
-    global user_directory
+    global _user_root_dir, user_directory
+    _user_root_dir = user_dir
     user_directory = user_dir
 
 
 def get_user_input_directory(user_id: str) -> str:
-    """Get input directory for a specific user."""
-    global input_directory
-    user_input_dir = os.path.join(input_directory, f"user_{user_id}")
+    """Get input directory for a specific user.
+    Returns user-specific directory under user_directory: {user_directory}/{user_id}/input
+    """
+    global _user_root_dir
+    user_input_dir = os.path.join(_user_root_dir, user_id, "input")
     os.makedirs(user_input_dir, exist_ok=True)
     return user_input_dir
 
 
 def get_user_temp_directory(user_id: str) -> str:
-    """Get temp directory for a specific user."""
-    global temp_directory
-    user_temp_dir = os.path.join(temp_directory, f"user_{user_id}")
+    """Get temp directory for a specific user.
+    Returns user-specific directory under user_directory: {user_directory}/{user_id}/temp
+    """
+    global _user_root_dir
+    user_temp_dir = os.path.join(_user_root_dir, user_id, "temp")
     os.makedirs(user_temp_dir, exist_ok=True)
     return user_temp_dir
 
@@ -192,14 +247,9 @@ def get_user_directory_by_type(directory_type: str, user_id: Optional[str] = Non
     if user_id is None:
         user_id = get_execution_user()
 
-    # If no user_id or not in multi-user mode, return global directory
-    if user_id is None or not args.multi_user:
-        if directory_type == 'output':
-            return output_directory
-        elif directory_type == 'input':
-            return input_directory
-        else:
-            return temp_directory
+    # user_id is required - no fallback to global directory
+    if user_id is None:
+        raise ValueError("user_id is required: no user context available")
 
     # Return user-specific directory
     if directory_type == 'output':

@@ -56,9 +56,9 @@ async def get_captcha(request: web.Request) -> web.Response:
         )
 
 
-@ROUTES.post('/api/v2/login')
-async def login(request: web.Request) -> web.Response:
-    """处理登录请求（支持验证码和自动创建用户）"""
+@ROUTES.post('/api/v2/register')
+async def register(request: web.Request) -> web.Response:
+    """处理注册请求（需要验证码）"""
     try:
         # 解析JSON请求体
         data = await request.json()
@@ -85,7 +85,63 @@ async def login(request: web.Request) -> web.Response:
                     status=400
                 )
             
-            # 用户认证
+            # 注册用户
+            auth_service = AuthService(session)
+            success, message, user = auth_service.register(username, password)
+            
+            if success:
+                # 注册成功
+                return web.json_response({
+                    'success': True,
+                    'message': message,
+                    'user': user.to_dict() if user else None,
+                    'user_id': user.id if user else None
+                })
+            else:
+                # 注册失败
+                return web.json_response(
+                    {'success': False, 'message': message},
+                    status=400
+                )
+    
+    except Exception as e:
+        logging.error(f"注册失败: {str(e)}")
+        return web.json_response(
+            {'success': False, 'message': f'注册失败: {str(e)}'},
+            status=500
+        )
+
+
+@ROUTES.post('/api/v2/login')
+async def login(request: web.Request) -> web.Response:
+    """处理登录请求（支持验证码，不会自动创建用户）"""
+    try:
+        # 解析JSON请求体
+        data = await request.json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        captcha = data.get('captcha', '').strip()
+        captcha_id = data.get('captcha_id', '')
+        
+        # 验证输入
+        if not username or not password or not captcha or not captcha_id:
+            return web.json_response(
+                {'success': False, 'message': '请填写所有必填项'},
+                status=400
+            )
+        
+        with create_session() as session:
+            # 验证验证码
+            captcha_service = CaptchaService(session)
+            captcha_valid, captcha_msg = captcha_service.verify_captcha(captcha_id, captcha)
+            
+            if not captcha_valid:
+                return web.json_response(
+                    {'success': False, 'message': captcha_msg},
+                    status=400
+                )
+            
+            # 用户认证（不会自动创建用户）
             auth_service = AuthService(session)
             success, message, user = auth_service.authenticate(username, password)
             

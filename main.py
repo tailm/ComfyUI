@@ -130,8 +130,16 @@ def apply_custom_paths():
         folder_paths.set_input_directory(input_dir)
 
     if args.user_directory:
-        user_dir = os.path.abspath(args.user_directory)
-        logging.info(f"Setting user directory to: {user_dir}")
+        if args.user_directory.startswith(('http://', 'https://')):
+            # Remote mode: use URL directly without path conversion
+            user_dir = args.user_directory
+            logging.info(f"Setting user directory to remote URL: {user_dir}")
+        else:
+            # Local mode: convert to absolute path and validate
+            user_dir = os.path.abspath(args.user_directory)
+            if not os.path.isdir(user_dir):
+                logging.warning(f"User directory does not exist, it will be created: {user_dir}")
+            logging.info(f"Setting user directory to: {user_dir}")
         folder_paths.set_user_directory(user_dir)
 
 
@@ -327,8 +335,11 @@ def prompt_worker(q, server_instance):
 
             need_gc = True
             
-            # Get user_id from extra_data
-            user_id = extra_data.get("user_id", "0")
+            # Get user_id from extra_data (required)
+            user_id = extra_data.get("user_id")
+            if not user_id:
+                logging.error("user_id is missing in extra_data, skipping task_done")
+                return
 
             remove_sensitive = lambda prompt: prompt[:5] + prompt[6:]
             q.task_done(item_id,
