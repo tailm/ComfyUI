@@ -111,9 +111,10 @@ __pycache__/
 *.safetensors
 
 # User data (runtime)
-user/1
-user/2
-user/3
+user/1/
+user/2/
+user/3/
+user/__*/
 *.db
 *.db.bkp
 *.db.lock
