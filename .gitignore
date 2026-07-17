@@ -107,8 +107,8 @@ __pycache__/
 *.pyo
 
 # Model files (large binaries)
-models/
 
+*.safetensors
 
 # User data (runtime)
 user/1
