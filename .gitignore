@@ -111,7 +111,9 @@ models/
 
 
 # User data (runtime)
-user/
+user/1
+user/2
+user/3
 *.db
 *.db.bkp
 *.db.lock
