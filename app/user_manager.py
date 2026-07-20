@@ -359,9 +359,32 @@ class UserManager():
                 username = user_info.get("username", "")
             else:
                 username = user_info if user_info else ""
+
+            user_data = {"userId": user_id, "username": username}
+
+            # Get full user info from database
+            try:
+                from app.database.db import create_session
+                from app.database.user_models import User as UserModel
+                with create_session() as session:
+                    from sqlalchemy import select
+                    stmt = select(UserModel).where(UserModel.id == user_id)
+                    result = session.execute(stmt)
+                    user_obj = result.scalar_one_or_none()
+                    if user_obj:
+                        user_data.update({
+                            "level": user_obj.level,
+                            "isAdmin": bool(user_obj.is_admin),
+                            "isActive": user_obj.is_active,
+                            "createdAt": user_obj.created_at.isoformat() if user_obj.created_at else None,
+                            "lastLogin": user_obj.last_login.isoformat() if user_obj.last_login else None,
+                        })
+            except Exception:
+                pass
+
             return web.json_response({
                 "storage": "server",
-                "users": [{"userId": user_id, "username": username}]
+                "users": [user_data]
             })
 
         @routes.post("/users")

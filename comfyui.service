@@ -1,0 +1,15 @@
+[Unit]
+Description=ComfyUI Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/gpu/ComfyUI
+ExecStart=/home/gpu/miniconda3/bin/python3 /home/gpu/ComfyUI/main.py --listen 0.0.0.0 --port 8188
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/gpu/ComfyUI/comfyui.log
+StandardError=append:/home/gpu/ComfyUI/comfyui.log
+
+[Install]
+WantedBy=default.target
