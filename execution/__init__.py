@@ -49,6 +49,14 @@ from comfy_execution.graph import (
 )
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from comfy_execution.validation import validate_node_input
+
+# 导入积分系统服务
+try:
+    from comfy_api.points import PointsAccountService, InsufficientPointsException
+    POINTS_AVAILABLE = True
+except ImportError:
+    POINTS_AVAILABLE = False
+    logging.warning("积分系统不可用，将不执行积分扣减")
 from comfy_execution.progress import get_progress_state, reset_progress_state, add_progress_handler, WebUIProgressHandler
 from comfy_execution.utils import CurrentNodeContext
 from comfy_api.internal import _ComfyNodeInternal, _NodeOutputInternal, first_real_override, is_class, make_locked_method_func
@@ -785,6 +793,10 @@ class PromptExecutor:
             ram_release_callback = self.caches.outputs.ram_release if self.cache_type == CacheType.RAM_PRESSURE else None
             comfy.memory_management.set_ram_cache_release_state(ram_release_callback, ram_headroom)
 
+            # 记录任务开始时间，用于计算积分扣减
+            execution_start_time = time.time()
+            execution_success = False
+
             try:
                 with torch.inference_mode():
                     dynamic_prompt = DynamicPrompt(prompt)
@@ -857,6 +869,9 @@ class PromptExecutor:
                             _send_cached_ui(self.server, node_id, display_node_id, cached, prompt_id, ui_node_outputs)
                     self.add_message("execution_success", { "prompt_id": prompt_id }, broadcast=False)
 
+                    # 任务执行成功，标记成功状态
+                    execution_success = True
+
                 ui_outputs = {}
                 meta_outputs = {}
                 for node_id, ui_info in ui_node_outputs.items():
@@ -872,6 +887,19 @@ class PromptExecutor:
             finally:
                 comfy.memory_management.set_ram_cache_release_state(None, 0)
                 self._notify_prompt_lifecycle("end", prompt_id)
+
+                # 积分扣减逻辑：任务执行成功时扣减积分
+                if POINTS_AVAILABLE and execution_success and user_id:
+                    execution_duration = int(time.time() - execution_start_time)
+                    if execution_duration > 0:
+                        try:
+                            points_service = PointsAccountService()
+                            points_service.deduct_points(user_id, execution_duration)
+                            logging.info(f"用户 {user_id} 任务执行成功，扣减 {execution_duration} 积分")
+                        except InsufficientPointsException as e:
+                            logging.warning(f"用户 {user_id} 积分不足，任务执行失败: {e}")
+                        except Exception as e:
+                            logging.error(f"用户 {user_id} 积分扣减失败: {e}")
         finally:
             # Clear execution user context
             clear_execution_user()

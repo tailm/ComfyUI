@@ -21,6 +21,7 @@ try:
 
     from app.database.models import Base
     import app.assets.database.models  # noqa: F401 — register models with Base.metadata
+    import app.database.points.models  # noqa: F401 — register points models with Base.metadata
 
     _DB_AVAILABLE = True
 except ImportError as e:

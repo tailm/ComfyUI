@@ -1372,6 +1372,26 @@ class PromptServer():
         # 注册登录路由
         self.app.add_routes(login_routes.ROUTES)
 
+        # 注册积分系统路由
+        try:
+            from api_server.routes.points_routes import (
+                init_account,
+                validate_points,
+                deduct_points,
+                get_balance,
+                create_order,
+                payment_callback,
+            )
+            self.routes.get('/points/accounts/init')(init_account)
+            self.routes.post('/points/accounts/validate')(validate_points)
+            self.routes.post('/points/accounts/deduct')(deduct_points)
+            self.routes.get('/points/accounts/balance')(get_balance)
+            self.routes.post('/points/recharge/orders')(create_order)
+            self.routes.post('/points/recharge/callback')(payment_callback)
+            logging.info("积分系统路由注册成功")
+        except ImportError as e:
+            logging.warning(f"积分系统路由注册失败: {e}")
+
         # Add routes from web extensions.
         for name, dir in nodes.EXTENSION_WEB_DIRS.items():
             self.app.add_routes([web.static('/extensions/' + name, dir)])

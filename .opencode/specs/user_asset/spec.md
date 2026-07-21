@@ -38,9 +38,6 @@
 **远程模式（Remote Mode）**
 : 用户根目录指向远程 HTTP 服务地址的模式，程序通过 HTTP 请求代理读写用户资产。
 
-**旧目录结构（Legacy Directory Structure）**
-: 当前使用的目录结构，即 `output/user_{user_id}/`、`input/user_{user_id}/`、`temp/user_{user_id}/`。
-
 **新目录结构（New Directory Structure）**
 : 重构后的目录结构，即 `user/{user_id}/output/`、`user/{user_id}/input/`、`user/{user_id}/temp/`。
 

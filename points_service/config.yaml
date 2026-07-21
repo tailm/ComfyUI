@@ -1,0 +1,53 @@
+# 数据库配置
+database:
+  type: sqlite
+  path: ../user/comfyui.db
+  pool_size: 10
+  max_overflow: 20
+  pool_timeout: 30
+  pool_recycle: 3600
+
+# Redis配置
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  password: null
+  pool_size: 10
+  socket_timeout: 5
+  socket_connect_timeout: 5
+
+# 充值比例配置
+points:
+  recharge_ratio: 1000  # 1人民币 = 1000积分
+  initial_balance: 100  # 初始积分
+
+# 缓存配置
+cache:
+  balance_ttl: 300  # 积分余额缓存过期时间（秒）
+
+# 日志配置
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: logs/points_service.log
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# 支付配置
+payment:
+  alipay:
+    app_id: your_alipay_app_id
+    private_key: your_alipay_private_key
+    public_key: your_alipay_public_key
+    notify_url: http://your-domain.com/recharge-orders/callback/alipay
+  wechat:
+    app_id: your_wechat_app_id
+    mch_id: your_wechat_mch_id
+    api_key: your_wechat_api_key
+    notify_url: http://your-domain.com/recharge-orders/callback/wechat
+
+# 监控配置
+monitoring:
+  enabled: true
+  prometheus_port: 9090
