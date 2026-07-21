@@ -1355,6 +1355,32 @@ class PromptServer():
         self.node_replace_manager.add_routes(self.routes)
         self.app.add_subapp('/internal', self.internal_routes.get_app())
 
+        # 注册积分系统路由（必须在api_routes生成之前注册，以便自动添加/api前缀）
+        try:
+            from api_server.routes.points_routes import (
+                init_account,
+                validate_points,
+                deduct_points,
+                get_balance,
+                create_order,
+                payment_callback,
+                get_stats,
+                get_transactions,
+                claim_daily_points,
+            )
+            self.routes.get('/points/accounts/init')(init_account)
+            self.routes.post('/points/accounts/validate')(validate_points)
+            self.routes.post('/points/accounts/deduct')(deduct_points)
+            self.routes.get('/points/accounts/balance')(get_balance)
+            self.routes.post('/points/recharge/orders')(create_order)
+            self.routes.post('/points/recharge/callback')(payment_callback)
+            self.routes.get('/points/accounts/stats')(get_stats)
+            self.routes.get('/points/transactions')(get_transactions)
+            self.routes.post('/points/accounts/claim-daily')(claim_daily_points)
+            logging.info("积分系统路由注册成功")
+        except ImportError as e:
+            logging.warning(f"积分系统路由注册失败: {e}")
+
         # Prefix every route with /api for easier matching for delegation.
         # This is very useful for frontend dev server, which need to forward
         # everything except serving of static files.
@@ -1371,26 +1397,6 @@ class PromptServer():
         
         # 注册登录路由
         self.app.add_routes(login_routes.ROUTES)
-
-        # 注册积分系统路由
-        try:
-            from api_server.routes.points_routes import (
-                init_account,
-                validate_points,
-                deduct_points,
-                get_balance,
-                create_order,
-                payment_callback,
-            )
-            self.routes.get('/points/accounts/init')(init_account)
-            self.routes.post('/points/accounts/validate')(validate_points)
-            self.routes.post('/points/accounts/deduct')(deduct_points)
-            self.routes.get('/points/accounts/balance')(get_balance)
-            self.routes.post('/points/recharge/orders')(create_order)
-            self.routes.post('/points/recharge/callback')(payment_callback)
-            logging.info("积分系统路由注册成功")
-        except ImportError as e:
-            logging.warning(f"积分系统路由注册失败: {e}")
 
         # Add routes from web extensions.
         for name, dir in nodes.EXTENSION_WEB_DIRS.items():
