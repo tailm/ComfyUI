@@ -189,11 +189,31 @@ async def get_balance(request: web.Request):
 async def create_order(request: web.Request):
     """创建充值订单"""
     try:
+        user_id = get_user_id_from_request(request)
+    except web.HTTPUnauthorized:
+        raise web.HTTPUnauthorized(
+            text=json.dumps({"error": "请先登录"}),
+            content_type="application/json"
+        )
+
+    try:
         body = await request.json()
-        req = CreateOrderRequest(**body)
+        amount = body.get("amount")
+        payment_method = body.get("paymentMethod")
+        if not amount or not payment_method:
+            raise web.HTTPBadRequest(
+                text=json.dumps({"error": "缺少必要参数"}),
+                content_type="application/json"
+            )
+        if payment_method not in ("alipay", "wechat"):
+            raise web.HTTPBadRequest(
+                text=json.dumps({"error": "不支持的支付方式"}),
+                content_type="application/json"
+            )
+
         service = RechargeOrderService()
         order = service.create_order(
-            req.userId, Decimal(str(req.amount)), req.paymentMethod
+            user_id, Decimal(str(amount)), payment_method
         )
         return web.json_response({
             "orderId": order.order_id,
@@ -204,6 +224,8 @@ async def create_order(request: web.Request):
             "status": order.status,
             "createTime": order.create_time.isoformat() if order.create_time else None,
         })
+    except web.HTTPError:
+        raise
     except Exception as e:
         logger.error(f"创建充值订单失败：{e}")
         raise web.HTTPInternalServerError(text=str(e))
@@ -452,4 +474,62 @@ async def claim_daily_points(request: web.Request):
         raise
     except Exception as e:
         logger.error(f"每日领取积分失败：{e}")
+        raise web.HTTPInternalServerError(text=str(e))
+
+
+async def get_order_status(request: web.Request):
+    """查询充值订单状态"""
+    try:
+        user_id = get_user_id_from_request(request)
+    except web.HTTPUnauthorized:
+        raise web.HTTPUnauthorized(
+            text=json.dumps({"error": "请先登录"}),
+            content_type="application/json"
+        )
+
+    try:
+        order_id = request.query.get("orderId")
+        if not order_id:
+            raise web.HTTPBadRequest(
+                text=json.dumps({"error": "缺少订单号"}),
+                content_type="application/json"
+            )
+
+        from app.database.db import create_session
+        from app.database.points.models import RechargeOrder
+        from sqlalchemy import select
+
+        session = create_session()
+        try:
+            order = session.scalar(
+                select(RechargeOrder).where(
+                    RechargeOrder.order_id == order_id,
+                    RechargeOrder.user_id == user_id
+                )
+            )
+            if not order:
+                raise web.HTTPNotFound(
+                    text=json.dumps({"error": "订单不存在"}),
+                    content_type="application/json"
+                )
+            return web.json_response({
+                "orderId": order.order_id,
+                "amount": float(order.amount),
+                "points": float(order.points),
+                "paymentMethod": order.payment_method,
+                "status": order.status,
+                "paymentTime": order.payment_time.isoformat() if order.payment_time else None,
+                "createTime": order.create_time.isoformat() if order.create_time else None,
+            })
+        except web.HTTPError:
+            raise
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+    except web.HTTPError:
+        raise
+    except Exception as e:
+        logger.error(f"查询订单状态失败：{e}")
         raise web.HTTPInternalServerError(text=str(e))

@@ -1367,6 +1367,7 @@ class PromptServer():
                 get_stats,
                 get_transactions,
                 claim_daily_points,
+                get_order_status,
             )
             self.routes.get('/points/accounts/init')(init_account)
             self.routes.post('/points/accounts/validate')(validate_points)
@@ -1377,6 +1378,7 @@ class PromptServer():
             self.routes.get('/points/accounts/stats')(get_stats)
             self.routes.get('/points/transactions')(get_transactions)
             self.routes.post('/points/accounts/claim-daily')(claim_daily_points)
+            self.routes.get('/points/recharge/order-status')(get_order_status)
             logging.info("积分系统路由注册成功")
         except ImportError as e:
             logging.warning(f"积分系统路由注册失败: {e}")

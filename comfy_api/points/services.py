@@ -252,7 +252,17 @@ class RechargeOrderService:
             self.session.close()
 
     def calculate_points(self, amount: Decimal) -> Decimal:
-        """计算充值积分（支持配置化）"""
+        """计算充值积分（按预设档位）"""
+        special_prices = {
+            Decimal("9.9"): Decimal("1000"),
+            Decimal("19.9"): Decimal("3000"),
+            Decimal("49.9"): Decimal("10000"),
+            Decimal("99.9"): Decimal("25000"),
+            Decimal("199"): Decimal("50000"),
+            Decimal("1"): Decimal("100"),
+        }
+        if amount in special_prices:
+            return special_prices[amount]
         return amount * Decimal(str(points_config["points"].recharge_ratio))
 
     def generate_order_id(self) -> str:

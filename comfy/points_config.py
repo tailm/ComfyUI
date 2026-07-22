@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 
 
 class PointsConfig(BaseSettings):
-    recharge_ratio: int = 1000
+    recharge_ratio: int = 100
     initial_balance: int = 100
 
     class Config:
